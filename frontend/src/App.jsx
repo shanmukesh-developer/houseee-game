@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Intro from './components/Intro';
 import Home from './pages/Home';
 import GameRoom from './pages/GameRoom';
 import AdminPanel from './pages/AdminPanel';
@@ -53,6 +54,7 @@ function App() {
 
   const [myTickets, setMyTickets] = useState([]);
   const [roomCode, setRoomCode] = useState(null);
+  const [introDone, setIntroDone] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -115,6 +117,7 @@ function App() {
 
   return (
     <AppContext.Provider value={{ user, setUser, socket, gameState, setGameState, myTickets, setMyTickets, roomCode, setRoomCode }}>
+      {!introDone && <Intro onComplete={() => setIntroDone(true)} />}
       <Router>
         <div className="app-container relative min-h-screen">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-action/20 blur-[100px] rounded-full pointer-events-none -z-10"></div>

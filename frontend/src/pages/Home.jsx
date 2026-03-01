@@ -25,7 +25,7 @@ export default function Home() {
             currentUser = {
                 id: 'user_' + Math.random().toString(36).substr(2, 9),
                 name: nameInput,
-                walletBalance: 20,
+                walletBalance: 100,
                 role: nameInput.toLowerCase() === 'admin' ? 'admin' : 'player'
             };
             setUser(currentUser);

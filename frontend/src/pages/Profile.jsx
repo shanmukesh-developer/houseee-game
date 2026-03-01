@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { AppContext } from '../App';
 import { useNavigate } from 'react-router-dom';
-import { User, ChevronLeft, Target, Trophy, Flame, Users } from 'lucide-react';
+import { User, ChevronLeft, Target, Trophy, Flame, Users, LogOut } from 'lucide-react';
 export default function Profile() {
     const { user, setUser } = useContext(AppContext);
     const navigate = useNavigate();
@@ -46,6 +46,14 @@ export default function Profile() {
             // LocalStorage logic is magically handled by the useEffect in App.jsx when 'user' changes!
             setIsSavingClan(false);
         }, 800);
+    };
+
+    const handleLogout = () => {
+        if (window.confirm('Are you sure you want to log out? This will reset your profile and wallet balance on this device.')) {
+            localStorage.removeItem('houseee_user');
+            setUser(null);
+            navigate('/');
+        }
     };
 
     // Generate deterministic avatar URL using Dicebear
@@ -144,9 +152,16 @@ export default function Profile() {
 
                     <div className="mt-8 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
                         <h4 className="font-bold text-yellow-500 text-sm uppercase tracking-wider mb-2">Notice</h4>
-                        <p className="text-slate-300 text-sm leading-relaxed">
+                        <p className="text-slate-300 text-sm leading-relaxed mb-4">
                             Your profile data and wallet balance are stored securely on this device. If you clear your browser data or switch devices, your progress will be reset.
                         </p>
+
+                        <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center justify-center gap-2 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl font-bold uppercase tracking-wide transition-all mt-2"
+                        >
+                            <LogOut size={18} /> Log Out / Reset Device Profile
+                        </button>
                     </div>
                 </div>
             </div>
