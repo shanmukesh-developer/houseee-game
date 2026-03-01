@@ -17,28 +17,37 @@ export default function Home() {
         }
     }, [roomCode, navigate]);
 
-    const getOrCreateUser = () => {
-        if (user) return user;
-        const newUser = {
-            id: 'user_' + Math.random().toString(36).substr(2, 9),
-            name: nameInput,
-            walletBalance: 20,
-            role: nameInput.toLowerCase() === 'admin' ? 'admin' : 'player'
-        };
-        setUser(newUser);
-        return newUser;
-    };
-
     const handleHostGame = () => {
         if (!nameInput.trim() && !user) return;
-        const currentUser = getOrCreateUser();
+
+        let currentUser = user;
+        if (!currentUser) {
+            currentUser = {
+                id: 'user_' + Math.random().toString(36).substr(2, 9),
+                name: nameInput,
+                walletBalance: 20,
+                role: nameInput.toLowerCase() === 'admin' ? 'admin' : 'player'
+            };
+            setUser(currentUser);
+        }
+
         socket.emit('createRoom', { userId: currentUser.id, userFallback: currentUser });
     };
 
     const handleJoinGame = (e) => {
         e.preventDefault();
         if (!nameInput.trim() && !user) return;
-        const currentUser = getOrCreateUser();
+
+        let currentUser = user;
+        if (!currentUser) {
+            currentUser = {
+                id: 'user_' + Math.random().toString(36).substr(2, 9),
+                name: nameInput,
+                walletBalance: 20,
+                role: nameInput.toLowerCase() === 'admin' ? 'admin' : 'player'
+            };
+            setUser(currentUser);
+        }
 
         if (joinCode.length === 5) {
             socket.emit('joinRoom', { userId: currentUser.id, roomCode: joinCode.toUpperCase(), userFallback: currentUser });
