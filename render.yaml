@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: houseee-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    rootDir: backend
+
+  - type: web
+    name: houseee-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    rootDir: frontend
+    autoDeploy: false
+    envVars:
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: houseee-backend
+          envVarKey: RENDER_EXTERNAL_URL
