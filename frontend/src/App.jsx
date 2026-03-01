@@ -10,7 +10,9 @@ import { io } from 'socket.io-client';
 import { playSound } from './utils/audio';
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-export const socket = io(backendUrl);
+export const socket = io(backendUrl, {
+  transports: ['websocket', 'polling']
+});
 export const AppContext = React.createContext();
 
 function App() {
