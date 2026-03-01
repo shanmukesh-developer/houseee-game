@@ -10,9 +10,7 @@ import { io } from 'socket.io-client';
 import { playSound } from './utils/audio';
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-export const socket = io(backendUrl, {
-  transports: ['websocket', 'polling']
-});
+export const socket = io(backendUrl);
 export const AppContext = React.createContext();
 
 function App() {
@@ -37,12 +35,23 @@ function App() {
 
   useEffect(() => {
     if (user) {
+      console.log('User identified from localStorage:', user);
       localStorage.setItem('houseee_user', JSON.stringify(user));
       socket.emit('connectUser', user);
+    } else {
+      console.log('No user found in localStorage on App load.');
     }
   }, [user]);
 
   useEffect(() => {
+    socket.on('connect', () => {
+      console.log('✅ Socket connected successfully!', socket.id);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.log('❌ Socket connection error:', err.message);
+    });
+
     socket.on('gameStateUpdate', (state) => {
       setGameState(state);
     });
