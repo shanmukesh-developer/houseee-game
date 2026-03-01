@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Multiplayer Tambola Game",
   "scripts": {
+    "start": "cd backend && node index.js",
+    "build": "cd backend && npm install",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && node index.js",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
