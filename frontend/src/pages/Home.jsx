@@ -17,30 +17,28 @@ export default function Home() {
         }
     }, [roomCode, navigate]);
 
-    const handleCreateUser = (e) => {
-        if (e) e.preventDefault();
-        if (!nameInput.trim()) return false;
-        if (!user) {
-            setUser({
-                id: 'user_' + Math.random().toString(36).substr(2, 9),
-                name: nameInput,
-                walletBalance: 20,
-                role: nameInput.toLowerCase() === 'admin' ? 'admin' : 'player'
-            });
-        }
-        return true;
+    const getOrCreateUser = () => {
+        if (user) return user;
+        const newUser = {
+            id: 'user_' + Math.random().toString(36).substr(2, 9),
+            name: nameInput,
+            walletBalance: 20,
+            role: nameInput.toLowerCase() === 'admin' ? 'admin' : 'player'
+        };
+        setUser(newUser);
+        return newUser;
     };
 
     const handleHostGame = () => {
-        const currentUser = user || { id: 'user_' + Math.random().toString(36).substr(2, 9), name: nameInput, walletBalance: 20 };
-        if (!user) setUser(currentUser);
+        if (!nameInput.trim() && !user) return;
+        const currentUser = getOrCreateUser();
         socket.emit('createRoom', { userId: currentUser.id, userFallback: currentUser });
     };
 
     const handleJoinGame = (e) => {
         e.preventDefault();
-        const currentUser = user || { id: 'user_' + Math.random().toString(36).substr(2, 9), name: nameInput, walletBalance: 20 };
-        if (!user) setUser(currentUser);
+        if (!nameInput.trim() && !user) return;
+        const currentUser = getOrCreateUser();
 
         if (joinCode.length === 5) {
             socket.emit('joinRoom', { userId: currentUser.id, roomCode: joinCode.toUpperCase(), userFallback: currentUser });
@@ -72,7 +70,6 @@ export default function Home() {
                             type="text"
                             value={nameInput}
                             onChange={(e) => setNameInput(e.target.value)}
-                            onBlur={handleCreateUser}
                             placeholder="Enter your name..."
                             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-4 text-white placeholder-slate-500 focus:outline-none focus:border-action focus:ring-1 focus:ring-action transition-all"
                             required

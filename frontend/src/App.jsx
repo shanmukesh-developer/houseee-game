@@ -9,7 +9,28 @@ import Profile from './pages/Profile';
 import { io } from 'socket.io-client';
 import { playSound } from './utils/audio';
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+// Intelligently determine the backend URL
+const getBackendUrl = () => {
+  const envUrl = import.meta.env.VITE_BACKEND_URL;
+  if (envUrl && envUrl.trim() !== '') return envUrl;
+
+  const hostname = window.location.hostname;
+
+  // If we are on production render but the env var is missing, it's a configuration error
+  if (hostname.includes('render.com')) {
+    console.error("VITE_BACKEND_URL is missing in Render environment variables!");
+    return 'https://houseee-game-2.onrender.com'; // Hard-fallback to the URL you showed me earlier just in case
+  }
+
+  // If accessing from a local network IP on mobile (e.g., 192.168.1.5), use that exact IP for the backend port
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    return `http://${hostname}:5000`;
+  }
+
+  return 'http://localhost:5000';
+};
+
+const backendUrl = getBackendUrl();
 export const socket = io(backendUrl);
 export const AppContext = React.createContext();
 
