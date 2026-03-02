@@ -7,6 +7,8 @@ import AdminPanel from './pages/AdminPanel';
 import Leaderboard from './pages/Leaderboard';
 import Ledger from './pages/Ledger';
 import Profile from './pages/Profile';
+import TicTacToe from './pages/TicTacToe';
+import SOSGame from './pages/SOSGame';
 import { io } from 'socket.io-client';
 import { playSound } from './utils/audio';
 
@@ -54,6 +56,7 @@ function App() {
 
   const [myTickets, setMyTickets] = useState([]);
   const [roomCode, setRoomCode] = useState(null);
+  const [gameType, setGameType] = useState(null);
   const [introDone, setIntroDone] = useState(false);
 
   useEffect(() => {
@@ -103,8 +106,14 @@ function App() {
       alert(`🎉 HOUSEEE! ${winnerName} won ${labels[claimType]}${prizeText}!`);
     });
 
-    socket.on('roomCreated', (code) => setRoomCode(code));
-    socket.on('joinedRoom', (code) => setRoomCode(code));
+    socket.on('roomCreated', ({ code, type }) => {
+      setRoomCode(code);
+      setGameType(type);
+    });
+    socket.on('joinedRoom', ({ code, type }) => {
+      setRoomCode(code);
+      setGameType(type);
+    });
     socket.on('gameRestarted', () => setMyTickets([]));
 
     return () => {
@@ -120,7 +129,7 @@ function App() {
   }, []);
 
   return (
-    <AppContext.Provider value={{ user, setUser, socket, gameState, setGameState, myTickets, setMyTickets, roomCode, setRoomCode }}>
+    <AppContext.Provider value={{ user, setUser, socket, gameState, setGameState, myTickets, setMyTickets, roomCode, setRoomCode, gameType, setGameType }}>
       {!introDone && <Intro onComplete={() => setIntroDone(true)} />}
       <Router>
         <div className="app-container relative min-h-screen">
@@ -128,6 +137,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/room" element={<GameRoom />} />
+            <Route path="/tictactoe" element={<TicTacToe />} />
+            <Route path="/sos" element={<SOSGame />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/ledger" element={<Ledger />} />

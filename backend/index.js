@@ -134,7 +134,7 @@ io.on('connection', (socket) => {
   });
 
   // Create Room
-  socket.on('createRoom', ({ userId, userFallback }) => {
+  socket.on('createRoom', ({ userId, userFallback, gameType }) => {
     let user = DB.users[userId];
     if (!user && userFallback) {
       user = userFallback;
@@ -143,9 +143,12 @@ io.on('connection', (socket) => {
     if (!user) return;
 
     const code = generateRoomCode();
-    DB.rooms[code] = {
+
+    // Default Houseee Logic Data
+    let defaultRoomData = {
       code,
       hostId: userId,
+      gameType: gameType || 'houseee', // store the game type
       players: [user],
       drawnNumbers: [],
       tickets: {},
@@ -158,8 +161,22 @@ io.on('connection', (socket) => {
       winners: { jaldi5: null, rowTop: null, rowMid: null, rowBot: null, fullHouse: null, fourCorners: null, pyramid: null }
     };
 
+    // Initialize specific game payloads
+    if (gameType === 'tictactoe') {
+      defaultRoomData.board = Array(9).fill(null);
+      defaultRoomData.turn = userId; // host goes first by default
+      defaultRoomData.winner = null;
+    } else if (gameType === 'sos') {
+      defaultRoomData.board = Array(256).fill(null);
+      defaultRoomData.turn = userId;
+      defaultRoomData.winner = null;
+      defaultRoomData.scores = { [userId]: 0 };
+    }
+
+    DB.rooms[code] = defaultRoomData;
+
     socket.join(code);
-    socket.emit('roomCreated', code);
+    socket.emit('roomCreated', { code, type: gameType || 'houseee' });
     broadcastRoomState(code);
   });
 
@@ -182,7 +199,7 @@ io.on('connection', (socket) => {
     }
 
     socket.join(roomCode);
-    socket.emit('joinedRoom', roomCode);
+    socket.emit('joinedRoom', { code: roomCode, type: room.gameType || 'houseee' });
     broadcastRoomState(roomCode);
 
     // Send ticket if already bought
@@ -400,6 +417,158 @@ io.on('connection', (socket) => {
         socket.emit('errorMsg', 'Bogus Claim! Be careful.');
       }
     }
+  });
+
+  // --- GAME SPECIFIC LOGICS ---
+
+  // Tic Tac Toe Move
+  socket.on('tictactoeMove', ({ roomCode, userId, index }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'tictactoe' || room.status === 'finished') return;
+    if (room.turn !== userId) return; // not their turn
+    if (room.board[index] !== null) return; // spot taken
+
+    // Determine player symbol based on host status. Host is usually X.
+    const symbol = room.hostId === userId ? 'X' : 'O';
+    room.board[index] = symbol;
+
+    // Check Win
+    const lines = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // cols
+      [0, 4, 8], [2, 4, 6]           // diagonals
+    ];
+
+    let isWin = false;
+    for (const [a, b, c] of lines) {
+      if (room.board[a] && room.board[a] === room.board[b] && room.board[a] === room.board[c]) {
+        isWin = true;
+        break;
+      }
+    }
+
+    if (isWin) {
+      room.status = 'finished';
+      room.winner = userId;
+      const user = DB.users[userId];
+
+      // Simple transaction if they win simply for records (no wager yet)
+      addTransaction(userId, 'credit', 0, `Won Tic Tac Toe in Room ${roomCode}`);
+
+      io.to(roomCode).emit('winnerDeclared', { winnerName: user ? user.name : 'Player', claimType: 'TicTacToe Win', prize: 0 });
+    } else if (!room.board.includes(null)) {
+      room.status = 'finished';
+      room.winner = 'draw';
+      io.to(roomCode).emit('winnerDeclared', { winnerName: 'Nobody', claimType: 'Draw', prize: 0 });
+    } else {
+      // switch turn
+      const opponent = room.players.find(p => p.id !== userId);
+      if (opponent) room.turn = opponent.id;
+    }
+
+    broadcastRoomState(roomCode);
+  });
+
+  // SOS Move
+  socket.on('sosMove', ({ roomCode, userId, index, letter }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'sos' || room.status === 'finished') return;
+    if (room.turn !== userId) return;
+    if (room.board[index] !== null) return;
+    if (letter !== 'S' && letter !== 'O') return;
+
+    room.board[index] = letter;
+
+    // Check for SOS formed by this specific move (index)
+    // Board is 16x16
+    const row = Math.floor(index / 16);
+    const col = index % 16;
+
+    // Helper to get letter at r,c
+    const getL = (r, c) => {
+      if (r < 0 || r >= 16 || c < 0 || c >= 16) return null;
+      return room.board[r * 16 + c];
+    };
+
+    let sosCount = 0;
+
+    // Directions: [dRow, dCol] for 8 directions (half-directions since S-O-S symmetric)
+    // Actually simpler to check patterns around the placed letter
+    if (letter === 'S') {
+      // Look for S [O] [S] in 8 directions (4 axes)
+      const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+      for (const [dr, dc] of dirs) {
+        // Forward checking (+O, +S)
+        if (getL(row + dr, col + dc) === 'O' && getL(row + dr * 2, col + dc * 2) === 'S') sosCount++;
+        // Backward checking (-O, -S)
+        if (getL(row - dr, col - dc) === 'O' && getL(row - dr * 2, col - dc * 2) === 'S') sosCount++;
+      }
+    } else if (letter === 'O') {
+      // Look for [S] O [S] across the 4 axes
+      const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+      for (const [dr, dc] of dirs) {
+        if (getL(row + dr, col + dc) === 'S' && getL(row - dr, col - dc) === 'S') sosCount++;
+      }
+    }
+
+    if (sosCount > 0) {
+      // Add points
+      room.scores[userId] = (room.scores[userId] || 0) + sosCount;
+      // Turn stays with current player
+    } else {
+      // switch turn
+      const opponent = room.players.find(p => p.id !== userId);
+      if (opponent) room.turn = opponent.id;
+    }
+
+    // Check if board full
+    if (!room.board.includes(null)) {
+      room.status = 'finished';
+      const p1 = room.players[0]?.id;
+      const p2 = room.players[1]?.id;
+      const s1 = room.scores[p1] || 0;
+      const s2 = room.scores[p2] || 0;
+
+      if (s1 > s2) {
+        room.winner = p1;
+        io.to(roomCode).emit('winnerDeclared', { winnerName: room.players[0].name, claimType: 'SOS Win', prize: 0 });
+      } else if (s2 > s1) {
+        room.winner = p2;
+        io.to(roomCode).emit('winnerDeclared', { winnerName: room.players[1].name, claimType: 'SOS Win', prize: 0 });
+      } else {
+        room.winner = 'draw';
+        io.to(roomCode).emit('winnerDeclared', { winnerName: 'Nobody', claimType: 'Draw', prize: 0 });
+      }
+    }
+
+    broadcastRoomState(roomCode);
+  });
+
+  // --- WEBRTC & EMOJI SIGNALING ---
+
+  socket.on('webrtcOffer', ({ roomCode, offer, targetId, callerId }) => {
+    const targetUser = DB.users[targetId];
+    if (targetUser && targetUser.socketId) {
+      io.to(targetUser.socketId).emit('webrtcOffer', { offer, callerId });
+    }
+  });
+
+  socket.on('webrtcAnswer', ({ roomCode, answer, targetId }) => {
+    const targetUser = DB.users[targetId];
+    if (targetUser && targetUser.socketId) {
+      io.to(targetUser.socketId).emit('webrtcAnswer', { answer });
+    }
+  });
+
+  socket.on('webrtcIceCandidate', ({ roomCode, candidate, targetId }) => {
+    const targetUser = DB.users[targetId];
+    if (targetUser && targetUser.socketId) {
+      io.to(targetUser.socketId).emit('webrtcIceCandidate', { candidate });
+    }
+  });
+
+  socket.on('sendEmoji', ({ roomCode, userId, emoji }) => {
+    io.to(roomCode).emit('receiveEmoji', { userId, emoji, id: Date.now() + Math.random() });
   });
 
   // Chat Message

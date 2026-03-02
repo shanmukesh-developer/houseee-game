@@ -5,17 +5,20 @@ import { Sparkles, Play, Wallet, ShieldCheck, KeyRound, Crown, Trophy, Receipt, 
 import { motion } from 'framer-motion';
 
 export default function Home() {
-    const { user, setUser, socket, roomCode } = useContext(AppContext);
+    const { user, setUser, socket, roomCode, gameType, setGameType } = useContext(AppContext);
     const [nameInput, setNameInput] = useState(user?.name || '');
     const [joinCode, setJoinCode] = useState('');
+    const [selectedGame, setSelectedGame] = useState('houseee');
     const navigate = useNavigate();
 
-    // Whenever we successfully receive a roomCode, navigate to room
+    // Whenever we successfully receive a roomCode, navigate to the correct room type
     useEffect(() => {
-        if (roomCode) {
-            navigate('/room');
+        if (roomCode && gameType) {
+            if (gameType === 'houseee') navigate('/room');
+            if (gameType === 'tictactoe') navigate('/tictactoe');
+            if (gameType === 'sos') navigate('/sos');
         }
-    }, [roomCode, navigate]);
+    }, [roomCode, gameType, navigate]);
 
     const handleHostGame = () => {
         if (!nameInput.trim() && !user) return;
@@ -31,7 +34,7 @@ export default function Home() {
             setUser(currentUser);
         }
 
-        socket.emit('createRoom', { userId: currentUser.id, userFallback: currentUser });
+        socket.emit('createRoom', { userId: currentUser.id, userFallback: currentUser, gameType: selectedGame });
     };
 
     const handleJoinGame = (e) => {
@@ -113,13 +116,43 @@ export default function Home() {
                     </div>
                 )}
 
+                {/* GAME SELECTION */}
+                <div className="mb-6 grid grid-cols-3 gap-2">
+                    <button
+                        onClick={() => setSelectedGame('houseee')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'houseee' ? 'bg-highlight/20 border-highlight text-highlight shadow-[0_0_15px_rgba(57,255,20,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <Sparkles size={24} className="mb-1" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Houseee</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('tictactoe')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'tictactoe' ? 'bg-blue-500/20 border-blue-500 text-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <div className="text-xl font-black mb-1 leading-none tracking-widest px-1">X O</div>
+                        <span className="text-xs font-bold uppercase tracking-wider">Tic Tac Toe</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('sos')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'sos' ? 'bg-red-500/20 border-red-500 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <div className="text-xl font-black mb-1 leading-none tracking-widest px-1">SOS</div>
+                        <span className="text-xs font-bold uppercase tracking-wider">S O S</span>
+                    </button>
+                </div>
+
                 <div className="space-y-4">
                     <button
                         onClick={handleHostGame}
                         disabled={!user && !nameInput.trim()}
                         className={`btn-neon w-full flex items-center justify-center gap-2 text-lg py-4 ${(!user && !nameInput) ? 'opacity-50' : ''}`}
+                        style={{
+                            backgroundColor: selectedGame === 'tictactoe' ? 'rgba(59, 130, 246, 0.2)' : selectedGame === 'sos' ? 'rgba(239, 68, 68, 0.2)' : undefined,
+                            borderColor: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : undefined,
+                            color: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : undefined,
+                        }}
                     >
-                        <Crown fill="currentColor" /> Host a Game
+                        <Crown fill="currentColor" /> Host {selectedGame.toUpperCase()} Game
                     </button>
 
                     <div className="flex items-center gap-4 text-slate-500 text-sm my-4">
