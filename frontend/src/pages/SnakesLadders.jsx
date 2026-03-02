@@ -108,7 +108,7 @@ export default function SnakesLadders() {
     };
 
     const handleRoll = () => {
-        if (!isMyTurn || safeGameState.winner) return;
+        if (!isMyTurn || isRolling || safeGameState.winner) return;
         setIsRolling(true);
         socket.emit('rollDiceSL', { roomCode, userId: user.id });
         setTimeout(() => {
