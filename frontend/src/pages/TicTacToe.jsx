@@ -5,12 +5,19 @@ import { ChevronLeft, KeySquare, Users, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiOverlay from '../components/EmojiOverlay';
 import VoiceChat from '../components/VoiceChat';
+import VFXOverlay from '../components/VFXOverlay';
 
 const EMOJIS = ['😂', '🥶', '🔥', '💀', '🤡', '😡'];
 
 export default function TicTacToe() {
-    const { user, gameState, socket, roomCode, gameType } = useContext(AppContext);
+    const { user, gameState, socket, roomCode, gameType, setRoomCode, setGameType } = useContext(AppContext);
     const navigate = useNavigate();
+
+    const leaveRoom = () => {
+        setRoomCode(null);
+        setGameType(null);
+        navigate('/');
+    };
 
     useEffect(() => {
         if (!user || !roomCode || gameType !== 'tictactoe') {
@@ -18,12 +25,25 @@ export default function TicTacToe() {
         }
     }, [user, roomCode, gameType, navigate]);
 
-    if (!user || !roomCode) return null;
 
     const safeGameState = gameState || { players: [], winner: null, turn: null, board: Array(9).fill(null) };
     const board = safeGameState.board || Array(9).fill(null);
-    const mySymbol = safeGameState.hostId === user.id ? 'X' : 'O';
-    const isMyTurn = safeGameState.turn === user.id;
+    const mySymbol = safeGameState.hostId === user?.id ? 'X' : 'O';
+    const isMyTurn = safeGameState.turn === user?.id;
+
+    const [vfxType, setVfxType] = useState(null);
+    const [vfxTrigger, setVfxTrigger] = useState(0);
+
+    const prevWinner = React.useRef(safeGameState.winner);
+    useEffect(() => {
+        if (!prevWinner.current && safeGameState.winner && safeGameState.winner !== 'draw') {
+            setVfxType('victory');
+            setVfxTrigger(v => v + 1);
+        }
+        prevWinner.current = safeGameState.winner;
+    }, [safeGameState.winner]);
+
+    if (!user || !roomCode) return null;
 
     const handleMove = (index) => {
         if (isMyTurn && board[index] === null && safeGameState.status !== 'finished') {
@@ -43,10 +63,11 @@ export default function TicTacToe() {
         <div className="min-h-screen py-4 px-4 md:px-8 max-w-7xl mx-auto flex flex-col gap-6 font-sans relative">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950 pointer-events-none -z-10"></div>
             <EmojiOverlay />
+            <VFXOverlay type={vfxType} trigger={vfxTrigger} message={safeGameState.winner === user.id ? 'VICTORY' : 'DEFEAT'} />
 
             <header className="flex flex-wrap justify-between items-center bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.2)] relative z-10 gap-4">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/')} className="text-slate-400 hover:text-blue-400 transition-colors bg-slate-800/80 p-3 rounded-xl border border-slate-700 hover:border-blue-500">
+                    <button onClick={leaveRoom} className="text-slate-400 hover:text-blue-400 transition-colors bg-slate-800/80 p-3 rounded-xl border border-slate-700 hover:border-blue-500">
                         <ChevronLeft size={24} />
                     </button>
                     <div className="flex items-center gap-2 bg-slate-950 border-2 border-slate-700 px-6 py-3 rounded-xl font-mono tracking-widest text-xl font-black text-blue-400 shadow-inner">
@@ -94,7 +115,7 @@ export default function TicTacToe() {
                         </div>
                     </div>
 
-                    <div className="aspect-square w-full max-w-[400px] mx-auto bg-slate-950 rounded-[2rem] border-[6px] border-blue-500/40 p-3 grid grid-cols-3 gap-3 relative z-10 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+                    <div className="w-[85vmin] h-[85vmin] md:aspect-square md:h-auto md:w-full max-w-[400px] mx-auto bg-slate-950 rounded-[2rem] border-[6px] border-blue-500/40 p-3 grid grid-cols-3 gap-3 relative z-10 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
                         {board.map((cell, i) => (
                             <motion.div
                                 key={i}

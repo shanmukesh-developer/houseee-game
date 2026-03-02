@@ -12,7 +12,6 @@ export default function Ticket({ ticketData, drawnNumbers, onClaim, winners }) {
         }
     }, [drawnNumbers, isAutoMark]);
 
-    if (!ticketData || !ticketData.numbers) return null;
 
     const handleCellClick = (cellValue) => {
         if (cellValue === 0 || isAutoMark) return;
@@ -57,6 +56,8 @@ export default function Ticket({ ticketData, drawnNumbers, onClaim, winners }) {
         { id: 'fullHouse', label: 'Full House', isReady: isFullHouseReady },
         { id: 'pyramid', label: 'Pyramid', isReady: markedCount >= 6 }
     ];
+
+    if (!ticketData || !ticketData.numbers) return null;
 
     return (
         <div className="flex flex-col gap-3 md:gap-4 w-full">

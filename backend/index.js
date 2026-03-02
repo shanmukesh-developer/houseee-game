@@ -175,7 +175,7 @@ io.on('connection', (socket) => {
       defaultRoomData.positions = { [userId]: 0 };
       defaultRoomData.turn = userId;
       defaultRoomData.winner = null;
-      defaultRoomData.snakes = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
+      defaultRoomData.snakes = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 99: 30 };
       defaultRoomData.ladders = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 };
       defaultRoomData.history = []; // To store last rolls
     } else if (gameType === 'ludo') {
@@ -287,6 +287,8 @@ io.on('connection', (socket) => {
       for (let pid in room.tokens) room.tokens[pid] = [-1, -1, -1, -1];
       room.history = [];
       room.turn = room.hostId;
+      room.diceRolled = false;
+      room.lastDice = null;
     } else if (room.gameType === 'sos') {
       room.board = Array(256).fill(null);
       room.scores = {};
@@ -594,21 +596,35 @@ io.on('connection', (socket) => {
     if (room.turn !== userId) return;
 
     const dice = Math.floor(Math.random() * 6) + 1;
+    room.dice = dice; // EXPLICITLY BROADCAST DICE STATE
     let pos = (room.positions[userId] || 0);
+    let moveType = 'roll';
 
-    if (pos === 0) {
-      if (dice === 1 || dice === 6) pos = 1; // Needs 1 or 6 to start
-    } else {
-      if (pos + dice <= 100) {
-        pos += dice;
-        // check snakes/ladders
-        if (room.snakes[pos]) pos = room.snakes[pos];
-        else if (room.ladders[pos]) pos = room.ladders[pos];
+    if (pos + dice <= 100) {
+      pos += dice;
+      // check snakes/ladders
+      if (room.snakes[pos]) {
+        pos = room.snakes[pos];
+        moveType = 'snake';
+      } else if (room.ladders[pos]) {
+        pos = room.ladders[pos];
+        moveType = 'ladder';
       }
     }
+    let killVictim = null;
+    if (pos > 0 && pos < 100) {
+      for (const [pId, pPos] of Object.entries(room.positions)) {
+        if (pId !== userId && pPos === pos) {
+          room.positions[pId] = 0; // Send back to start
+          killVictim = pId;
+          break; // Kill one opponent
+        }
+      }
+    }
+
     room.positions[userId] = pos;
 
-    room.history.push({ userId, dice, newPos: pos });
+    room.history.push({ userId, dice, newPos: pos, type: moveType, victim: killVictim });
     if (room.history.length > 5) room.history.shift();
 
     if (pos === 100) {
@@ -623,6 +639,115 @@ io.on('connection', (socket) => {
         room.turn = room.players[nextIdx].id;
       }
     }
+    broadcastRoomState(roomCode);
+  });
+
+  // Ludo Move & Roll
+  socket.on('rollDiceLudo', ({ roomCode, userId }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'ludo' || room.status === 'finished') return;
+    if (room.turn !== userId || room.diceRolled) return;
+
+    const dice = Math.floor(Math.random() * 6) + 1;
+    room.lastDice = dice;
+    room.diceRolled = true;
+
+    room.history.push({ userId, type: 'roll', value: dice });
+    if (room.history.length > 10) room.history.shift();
+
+    // Check if player can move ANY token
+    const tokens = room.tokens[userId];
+    let canMove = false;
+    for (let pos of tokens) {
+      if (pos === -1 && dice === 6) canMove = true;
+      if (pos >= 0 && pos + dice <= 56) canMove = true; // 56 is home
+    }
+
+    if (!canMove) {
+      // pass turn
+      room.diceRolled = false;
+      const idx = room.players.findIndex(p => p.id === userId);
+      const nextIdx = (idx + 1) % room.players.length;
+      room.turn = room.players[nextIdx].id;
+    }
+
+    broadcastRoomState(roomCode);
+  });
+
+  socket.on('moveTokenLudo', ({ roomCode, userId, tokenIndex }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'ludo' || room.status === 'finished') return;
+    if (room.turn !== userId || !room.diceRolled) return;
+
+    const dice = room.lastDice;
+    const tokens = room.tokens[userId];
+    const pos = tokens[tokenIndex];
+
+    let newPos = pos;
+    if (pos === -1) {
+      if (dice !== 6) return; // Invalid move
+      newPos = 0;
+    } else {
+      if (pos + dice > 56) return; // Invalid move
+      newPos = pos + dice;
+    }
+
+    // Apply move locally
+    tokens[tokenIndex] = newPos;
+    room.diceRolled = false;
+
+    let extraTurn = false;
+    let captureOccurred = false;
+
+    if (dice === 6) extraTurn = true;
+    if (newPos === 56) extraTurn = true; // extra turn for reaching home
+
+    // Check Capture if on main track
+    if (newPos >= 0 && newPos <= 50) {
+      const colorOffset = { 'red': 0, 'green': 13, 'yellow': 26, 'blue': 39 };
+      const myColor = room.colors[userId];
+      const myGlobal = (colorOffset[myColor] + newPos) % 52;
+
+      const safeZones = [0, 8, 13, 21, 26, 34, 39, 47];
+
+      if (!safeZones.includes(myGlobal)) {
+        // Check other players
+        for (let p of room.players) {
+          if (p.id === userId) continue;
+          const oppColor = room.colors[p.id];
+          const oppTokens = room.tokens[p.id];
+          for (let i = 0; i < 4; i++) {
+            const oppPos = oppTokens[i];
+            if (oppPos >= 0 && oppPos <= 50) {
+              const oppGlobal = (colorOffset[oppColor] + oppPos) % 52;
+              if (oppGlobal === myGlobal) {
+                // Capture!
+                oppTokens[i] = -1; // Send back to base
+                extraTurn = true;
+                captureOccurred = true;
+                room.history.push({ userId, type: 'capture', victim: p.id });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Check Win Condition (all 4 tokens are 56)
+    if (tokens.every(t => t === 56)) {
+      room.status = 'finished';
+      room.winner = userId;
+      io.to(roomCode).emit('winnerDeclared', { winnerName: DB.users[userId].name, claimType: 'Ludo Win', prize: 0 });
+    } else {
+      // Pass turn if no extra turn
+      if (!extraTurn) {
+        const idx = room.players.findIndex(p => p.id === userId);
+        const nextIdx = (idx + 1) % room.players.length;
+        room.turn = room.players[nextIdx].id;
+      }
+    }
+
+    room.diceRolled = false;
     broadcastRoomState(roomCode);
   });
 

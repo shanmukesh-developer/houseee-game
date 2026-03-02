@@ -16,7 +16,6 @@ export default function VoiceChat() {
     useEffect(() => {
         if (!opponent || !socket) return;
 
-        // Initialize WebRTC
         const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
         const pc = new RTCPeerConnection(configuration);
         peerConnectionRef.current = pc;
@@ -33,35 +32,71 @@ export default function VoiceChat() {
             }
         };
 
+        pc.onnegotiationneeded = async () => {
+            // Only host creates offers automatically to avoid glare
+            if (gameState.hostId === user.id) {
+                try {
+                    const offer = await pc.createOffer({ offerToReceiveAudio: true });
+                    await pc.setLocalDescription(offer);
+                    socket.emit('webrtcOffer', { roomCode, offer, targetId: opponent.id, callerId: user.id });
+                } catch (e) {
+                    console.error('Negotiation error', e);
+                }
+            }
+        };
+
         const handleOffer = async ({ offer, callerId }) => {
             if (callerId !== opponent.id) return;
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('webrtcAnswer', { roomCode, answer, targetId: callerId });
+            try {
+                if (pc.signalingState !== 'stable') {
+                    // host wins
+                    if (gameState.hostId === user.id) return;
+                }
+                await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('webrtcAnswer', { roomCode, answer, targetId: callerId });
+            } catch (err) {
+                console.error('Handle Offer Error', err);
+            }
         };
 
         const handleAnswer = async ({ answer }) => {
-            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (err) {
+                console.error('Handle Answer Error', err);
+            }
         };
 
         const handleCandidate = async ({ candidate }) => {
             try {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
-            } catch (e) {
-                console.error('Error adding ice candidate', e);
-            }
+            } catch (e) { }
         };
 
         socket.on('webrtcOffer', handleOffer);
         socket.on('webrtcAnswer', handleAnswer);
         socket.on('webrtcIceCandidate', handleCandidate);
 
-        socket.on('webrtcReady', () => {
-            setIsWebrtcReady(true);
+        // When opponent signals they are ready, if we are host and already have tracks, renegotiate
+        socket.on('webrtcReady', async ({ userId }) => {
+            if (userId === opponent.id && gameState.hostId === user.id) {
+                try {
+                    const offer = await pc.createOffer({ offerToReceiveAudio: true });
+                    await pc.setLocalDescription(offer);
+                    socket.emit('webrtcOffer', { roomCode, offer, targetId: opponent.id, callerId: user.id });
+                } catch (e) { }
+            }
         });
 
-        // Let the backend know we are ready to receive/send Voice
+        // Initialize our stream if we had one
+        if (stream) {
+            stream.getTracks().forEach(track => {
+                pc.addTrack(track, stream);
+            });
+        }
+
         socket.emit('webrtcInit', { roomCode, userId: user.id });
 
         return () => {
@@ -71,23 +106,24 @@ export default function VoiceChat() {
             socket.off('webrtcReady');
             pc.close();
         };
-    }, [opponent, socket, roomCode, gameState?.hostId, user?.id]);
+        // Explicitly disabling stream dependency linting so we don't recreate PC when stream changes
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [opponent?.id, socket, roomCode, gameState?.hostId, user?.id]);
 
     const toggleMic = async () => {
-        if (!stream) {
+        if (!stream && peerConnectionRef.current) {
             try {
                 const newStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 setStream(newStream);
 
-                // add tracks to peer connection
                 newStream.getTracks().forEach(track => {
-                    peerConnectionRef.current?.addTrack(track, newStream);
+                    peerConnectionRef.current.addTrack(track, newStream);
                 });
                 setIsMuted(false);
 
-                // Now that tracks are added, if both are in room and I am the host (or just initiating for the first time), renegotiate/create offer
-                if (isWebrtcReady && gameState.hostId === user.id) {
-                    const offer = await peerConnectionRef.current.createOffer();
+                // For non-host, we can just trigger a send loop since we want to talk
+                if (gameState.hostId !== user.id) {
+                    const offer = await peerConnectionRef.current.createOffer({ offerToReceiveAudio: true });
                     await peerConnectionRef.current.setLocalDescription(offer);
                     socket.emit('webrtcOffer', { roomCode, offer, targetId: opponent.id, callerId: user.id });
                 }
@@ -96,8 +132,7 @@ export default function VoiceChat() {
                 console.error('Error accessing mic', err);
                 alert('Microphone access denied or unavailable. Please check browser permissions.');
             }
-        } else {
-            // Toggle existing
+        } else if (stream) {
             const audioTrack = stream.getAudioTracks()[0];
             if (audioTrack) {
                 audioTrack.enabled = !audioTrack.enabled;

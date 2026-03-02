@@ -7,11 +7,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { playSound } from '../utils/audio';
 
 export default function GameRoom() {
-    const { user, gameState, socket, myTickets, roomCode } = useContext(AppContext);
+    const { user, gameState, socket, myTickets, roomCode, setRoomCode, setGameType } = useContext(AppContext);
     const navigate = useNavigate();
     const [messages, setMessages] = useState([]);
     const [chatInput, setChatInput] = useState('');
     const chatEndRef = useRef(null);
+
+    const leaveRoom = () => {
+        setRoomCode(null);
+        setGameType(null);
+        navigate('/');
+    };
 
     useEffect(() => {
         if (!socket) return;
@@ -62,11 +68,12 @@ export default function GameRoom() {
         setChatInput('');
     };
 
-    if (!user || !roomCode) return null;
 
     // Safely fallback gameState to prevent React crash while loading from Socket
     const safeGameState = gameState || { isPaused: true, drawnNumbers: [], players: [], prizePool: 0, winners: {} };
-    const isHost = safeGameState.hostId === user.id;
+    const isHost = safeGameState.hostId === user?.id;
+
+    if (!user || !roomCode) return null;
 
     return (
         <div className="min-h-screen py-6 px-4 md:px-8 max-w-7xl mx-auto flex flex-col gap-8">
@@ -74,7 +81,7 @@ export default function GameRoom() {
             {/* Top Bar */}
             <header className="flex flex-col md:flex-row justify-between items-center glass-panel p-3 md:p-4 px-4 md:px-6 relative z-10 gap-3 md:gap-4">
                 <div className="flex items-center justify-between w-full md:w-auto gap-4">
-                    <button onClick={() => navigate('/')} className="text-slate-400 hover:text-white transition-colors bg-slate-800/50 p-2 rounded-lg md:bg-transparent md:p-0">
+                    <button onClick={leaveRoom} className="text-slate-400 hover:text-white transition-colors bg-slate-800/50 p-2 rounded-lg md:bg-transparent md:p-0">
                         <ChevronLeft size={24} />
                     </button>
                     <div className="flex flex-1 md:flex-none justify-center items-center gap-2 bg-slate-800 border border-slate-700 px-4 py-2 rounded-lg font-mono tracking-widest text-lg md:text-xl font-bold">

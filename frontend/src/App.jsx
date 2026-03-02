@@ -105,7 +105,10 @@ function App() {
       };
 
       const prizeText = prize > 0 ? ` and received ₹${prize}` : '';
-      alert(`🎉 HOUSEEE! ${winnerName} won ${labels[claimType]}${prizeText}!`);
+      const displayClaim = labels[claimType] || claimType; // Fallback to raw claimType
+      const gamePrefix = labels[claimType] ? 'HOUSEEE' : 'WINNER';
+
+      alert(`🎉 ${gamePrefix}! ${winnerName} won ${displayClaim}${prizeText}!`);
     });
 
     socket.on('roomCreated', ({ code, type }) => {
