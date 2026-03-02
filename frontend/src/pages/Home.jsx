@@ -17,6 +17,8 @@ export default function Home() {
             if (gameType === 'houseee') navigate('/room');
             if (gameType === 'tictactoe') navigate('/tictactoe');
             if (gameType === 'sos') navigate('/sos');
+            if (gameType === 'snakesladders') navigate('/snakesladders');
+            if (gameType === 'ludo') navigate('/ludo');
         }
     }, [roomCode, gameType, navigate]);
 
@@ -117,27 +119,41 @@ export default function Home() {
                 )}
 
                 {/* GAME SELECTION */}
-                <div className="mb-6 grid grid-cols-3 gap-2">
+                <div className="mb-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                     <button
                         onClick={() => setSelectedGame('houseee')}
                         className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'houseee' ? 'bg-highlight/20 border-highlight text-highlight shadow-[0_0_15px_rgba(57,255,20,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
                     >
                         <Sparkles size={24} className="mb-1" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Houseee</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Houseee</span>
                     </button>
                     <button
                         onClick={() => setSelectedGame('tictactoe')}
                         className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'tictactoe' ? 'bg-blue-500/20 border-blue-500 text-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
                     >
                         <div className="text-xl font-black mb-1 leading-none tracking-widest px-1">X O</div>
-                        <span className="text-xs font-bold uppercase tracking-wider">Tic Tac Toe</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center">Tic Tac Toe</span>
                     </button>
                     <button
                         onClick={() => setSelectedGame('sos')}
                         className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'sos' ? 'bg-red-500/20 border-red-500 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
                     >
                         <div className="text-xl font-black mb-1 leading-none tracking-widest px-1">SOS</div>
-                        <span className="text-xs font-bold uppercase tracking-wider">S O S</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center">S O S</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('snakesladders')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'snakesladders' ? 'bg-green-500/20 border-green-500 text-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <div className="text-xl font-black mb-1 leading-none tracking-widest px-1">⚄</div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center">Snakes&Lad</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('ludo')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all col-span-2 md:col-span-1 lg:col-span-1 ${selectedGame === 'ludo' ? 'bg-purple-500/20 border-purple-500 text-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <div className="text-xl font-black mb-1 leading-none tracking-widest px-1">✚</div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center">Ludo</span>
                     </button>
                 </div>
 
@@ -147,9 +163,9 @@ export default function Home() {
                         disabled={!user && !nameInput.trim()}
                         className={`btn-neon w-full flex items-center justify-center gap-2 text-lg py-4 ${(!user && !nameInput) ? 'opacity-50' : ''}`}
                         style={{
-                            backgroundColor: selectedGame === 'tictactoe' ? 'rgba(59, 130, 246, 0.2)' : selectedGame === 'sos' ? 'rgba(239, 68, 68, 0.2)' : undefined,
-                            borderColor: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : undefined,
-                            color: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : undefined,
+                            backgroundColor: selectedGame === 'tictactoe' ? 'rgba(59, 130, 246, 0.2)' : selectedGame === 'sos' ? 'rgba(239, 68, 68, 0.2)' : selectedGame === 'snakesladders' ? 'rgba(34, 197, 94, 0.2)' : selectedGame === 'ludo' ? 'rgba(168, 85, 247, 0.2)' : undefined,
+                            borderColor: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : undefined,
+                            color: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : undefined,
                         }}
                     >
                         <Crown fill="currentColor" /> Host {selectedGame.toUpperCase()} Game

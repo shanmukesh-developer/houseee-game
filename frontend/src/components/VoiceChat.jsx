@@ -6,6 +6,7 @@ export default function VoiceChat() {
     const { user, socket, roomCode, gameState } = useContext(AppContext);
     const [isMuted, setIsMuted] = useState(true);
     const [stream, setStream] = useState(null);
+    const [isWebrtcReady, setIsWebrtcReady] = useState(false);
     const peerConnectionRef = useRef(null);
     const remoteAudioRef = useRef(null);
 
@@ -56,10 +57,18 @@ export default function VoiceChat() {
         socket.on('webrtcAnswer', handleAnswer);
         socket.on('webrtcIceCandidate', handleCandidate);
 
+        socket.on('webrtcReady', () => {
+            setIsWebrtcReady(true);
+        });
+
+        // Let the backend know we are ready to receive/send Voice
+        socket.emit('webrtcInit', { roomCode, userId: user.id });
+
         return () => {
             socket.off('webrtcOffer', handleOffer);
             socket.off('webrtcAnswer', handleAnswer);
             socket.off('webrtcIceCandidate', handleCandidate);
+            socket.off('webrtcReady');
             pc.close();
         };
     }, [opponent, socket, roomCode, gameState?.hostId, user?.id]);
@@ -69,16 +78,19 @@ export default function VoiceChat() {
             try {
                 const newStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 setStream(newStream);
+
                 // add tracks to peer connection
                 newStream.getTracks().forEach(track => {
                     peerConnectionRef.current?.addTrack(track, newStream);
                 });
                 setIsMuted(false);
 
-                // Now that tracks are added, if I am the host (or just initiating for the first time), renegotiate/create offer
-                const offer = await peerConnectionRef.current.createOffer();
-                await peerConnectionRef.current.setLocalDescription(offer);
-                socket.emit('webrtcOffer', { roomCode, offer, targetId: opponent.id, callerId: user.id });
+                // Now that tracks are added, if both are in room and I am the host (or just initiating for the first time), renegotiate/create offer
+                if (isWebrtcReady && gameState.hostId === user.id) {
+                    const offer = await peerConnectionRef.current.createOffer();
+                    await peerConnectionRef.current.setLocalDescription(offer);
+                    socket.emit('webrtcOffer', { roomCode, offer, targetId: opponent.id, callerId: user.id });
+                }
 
             } catch (err) {
                 console.error('Error accessing mic', err);

@@ -9,6 +9,8 @@ import Ledger from './pages/Ledger';
 import Profile from './pages/Profile';
 import TicTacToe from './pages/TicTacToe';
 import SOSGame from './pages/SOSGame';
+import SnakesLadders from './pages/SnakesLadders';
+import Ludo from './pages/Ludo';
 import { io } from 'socket.io-client';
 import { playSound } from './utils/audio';
 
@@ -139,6 +141,8 @@ function App() {
             <Route path="/room" element={<GameRoom />} />
             <Route path="/tictactoe" element={<TicTacToe />} />
             <Route path="/sos" element={<SOSGame />} />
+            <Route path="/snakesladders" element={<SnakesLadders />} />
+            <Route path="/ludo" element={<Ludo />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/ledger" element={<Ledger />} />

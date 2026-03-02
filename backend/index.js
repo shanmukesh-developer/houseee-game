@@ -171,6 +171,19 @@ io.on('connection', (socket) => {
       defaultRoomData.turn = userId;
       defaultRoomData.winner = null;
       defaultRoomData.scores = { [userId]: 0 };
+    } else if (gameType === 'snakesladders') {
+      defaultRoomData.positions = { [userId]: 0 };
+      defaultRoomData.turn = userId;
+      defaultRoomData.winner = null;
+      defaultRoomData.snakes = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
+      defaultRoomData.ladders = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 };
+      defaultRoomData.history = []; // To store last rolls
+    } else if (gameType === 'ludo') {
+      defaultRoomData.turn = userId;
+      defaultRoomData.tokens = { [userId]: [-1, -1, -1, -1] };
+      defaultRoomData.winner = null;
+      defaultRoomData.colors = { [userId]: 'red' };
+      defaultRoomData.history = [];
     }
 
     DB.rooms[code] = defaultRoomData;
@@ -196,6 +209,16 @@ io.on('connection', (socket) => {
 
     if (!room.players.find(p => p.id === userId)) {
       room.players.push(user);
+
+      // Initialize states for new players joining specific games
+      if (room.gameType === 'snakesladders') {
+        room.positions[userId] = 0;
+      } else if (room.gameType === 'ludo') {
+        room.tokens[userId] = [-1, -1, -1, -1];
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        const used = Object.values(room.colors || {});
+        room.colors[userId] = colors.find(c => !used.includes(c)) || 'red';
+      }
     }
 
     socket.join(roomCode);
@@ -254,13 +277,33 @@ io.on('connection', (socket) => {
 
     room.status = 'waiting';
     room.isPaused = true;
-    room.drawnNumbers = [];
-    room.tickets = {};
-    room.prizePool = 0;
-    room.totalCollected = 0;
-    room.winners = { jaldi5: null, rowTop: null, rowMid: null, rowBot: null, fullHouse: null, fourCorners: null, pyramid: null };
-    if (room.intervalId) clearInterval(room.intervalId);
-    room.intervalId = null;
+    room.winner = null;
+
+    if (room.gameType === 'snakesladders') {
+      for (let pid in room.positions) room.positions[pid] = 0;
+      room.history = [];
+      room.turn = room.hostId;
+    } else if (room.gameType === 'ludo') {
+      for (let pid in room.tokens) room.tokens[pid] = [-1, -1, -1, -1];
+      room.history = [];
+      room.turn = room.hostId;
+    } else if (room.gameType === 'sos') {
+      room.board = Array(256).fill(null);
+      room.scores = {};
+      room.players.forEach(p => { room.scores[p.id] = 0; });
+      room.turn = room.hostId;
+    } else if (room.gameType === 'tictactoe') {
+      room.board = Array(9).fill(null);
+      room.turn = room.hostId;
+    } else {
+      room.drawnNumbers = [];
+      room.tickets = {};
+      room.prizePool = 0;
+      room.totalCollected = 0;
+      room.winners = { jaldi5: null, rowTop: null, rowMid: null, rowBot: null, fullHouse: null, fourCorners: null, pyramid: null };
+      if (room.intervalId) clearInterval(room.intervalId);
+      room.intervalId = null;
+    }
 
     io.to(roomCode).emit('gameRestarted');
     broadcastRoomState(roomCode);
@@ -544,6 +587,45 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomCode);
   });
 
+  // Snake & Ladders Move
+  socket.on('rollDiceSL', ({ roomCode, userId }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'snakesladders' || room.status === 'finished') return;
+    if (room.turn !== userId) return;
+
+    const dice = Math.floor(Math.random() * 6) + 1;
+    let pos = (room.positions[userId] || 0);
+
+    if (pos === 0) {
+      if (dice === 1 || dice === 6) pos = 1; // Needs 1 or 6 to start
+    } else {
+      if (pos + dice <= 100) {
+        pos += dice;
+        // check snakes/ladders
+        if (room.snakes[pos]) pos = room.snakes[pos];
+        else if (room.ladders[pos]) pos = room.ladders[pos];
+      }
+    }
+    room.positions[userId] = pos;
+
+    room.history.push({ userId, dice, newPos: pos });
+    if (room.history.length > 5) room.history.shift();
+
+    if (pos === 100) {
+      room.status = 'finished';
+      room.winner = userId;
+      io.to(roomCode).emit('winnerDeclared', { winnerName: DB.users[userId].name, claimType: 'Snake & Ladders Win', prize: 0 });
+    } else {
+      if (dice !== 6) {
+        // cycle turn
+        const idx = room.players.findIndex(p => p.id === userId);
+        const nextIdx = (idx + 1) % room.players.length;
+        room.turn = room.players[nextIdx].id;
+      }
+    }
+    broadcastRoomState(roomCode);
+  });
+
   // --- WEBRTC & EMOJI SIGNALING ---
 
   socket.on('webrtcOffer', ({ roomCode, offer, targetId, callerId }) => {
@@ -565,6 +647,11 @@ io.on('connection', (socket) => {
     if (targetUser && targetUser.socketId) {
       io.to(targetUser.socketId).emit('webrtcIceCandidate', { candidate });
     }
+  });
+
+  socket.on('webrtcInit', ({ roomCode, userId }) => {
+    // When a user initializes their mic, notify the room they are ready for offers
+    io.to(roomCode).emit('webrtcReady', { userId });
   });
 
   socket.on('sendEmoji', ({ roomCode, userId, emoji }) => {

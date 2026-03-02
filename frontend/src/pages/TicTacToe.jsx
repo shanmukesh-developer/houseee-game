@@ -76,21 +76,21 @@ export default function TicTacToe() {
                         TIC TAC TOE
                     </h1>
 
-                    <div className="flex justify-between w-full items-center mb-10 px-6 bg-slate-950/50 p-6 rounded-2xl border border-slate-800">
-                        <div className={`flex flex-col items-center ${safeGameState.turn === safeGameState.players[0]?.id ? 'text-cyan-400 font-bold scale-125' : 'text-slate-500'} transition-all duration-300`}>
-                            <span className="text-xs uppercase tracking-widest bg-blue-900/50 border border-blue-500/30 text-blue-300 px-4 py-1.5 rounded-full mb-2 flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.4)]">
-                                {safeGameState.players[0]?.id === safeGameState.hostId && <Crown size={14} className="text-yellow-400" />} Player 1
+                    <div className="flex justify-between w-full items-center mb-6 md:mb-10 px-2 md:px-6 bg-slate-950/50 p-4 md:p-6 rounded-2xl border border-slate-800">
+                        <div className={`flex flex-col items-center ${safeGameState.turn === safeGameState.players[0]?.id ? 'text-cyan-400 font-bold scale-[1.1] md:scale-125' : 'text-slate-500'} transition-all duration-300`}>
+                            <span className="text-[10px] md:text-xs uppercase tracking-widest bg-blue-900/50 border border-blue-500/30 text-blue-300 px-2 md:px-4 py-1.5 rounded-full mb-1 md:mb-2 flex items-center gap-1 md:gap-2 shadow-[0_0_15px_rgba(59,130,246,0.4)]">
+                                {safeGameState.players[0]?.id === safeGameState.hostId && <Crown size={12} className="text-yellow-400" />} P1
                             </span>
-                            <span className="text-xl">{safeGameState.players[0]?.name || 'Waiting...'}</span>
-                            <span className="text-4xl font-black mt-2 text-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]">X</span>
+                            <span className="text-sm md:text-xl truncate max-w-[80px] md:max-w-[150px]">{safeGameState.players[0]?.name || 'Waiting...'}</span>
+                            <span className="text-2xl md:text-4xl font-black mt-1 text-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]">X</span>
                         </div>
-                        <div className="text-3xl font-black text-slate-700 mx-4">VS</div>
-                        <div className={`flex flex-col items-center ${safeGameState.turn === safeGameState.players[1]?.id ? 'text-red-400 font-bold scale-125' : 'text-slate-500'} transition-all duration-300`}>
-                            <span className="text-xs uppercase tracking-widest bg-red-900/50 border border-red-500/30 text-red-300 px-4 py-1.5 rounded-full mb-2 shadow-[0_0_15px_rgba(239,68,68,0.4)]">
-                                Player 2
+                        <div className="text-xl md:text-3xl font-black text-slate-700 mx-1 md:mx-4">VS</div>
+                        <div className={`flex flex-col items-center ${safeGameState.turn === safeGameState.players[1]?.id ? 'text-red-400 font-bold scale-[1.1] md:scale-125' : 'text-slate-500'} transition-all duration-300`}>
+                            <span className="text-[10px] md:text-xs uppercase tracking-widest bg-red-900/50 border border-red-500/30 text-red-300 px-2 md:px-4 py-1.5 rounded-full mb-1 md:mb-2 shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+                                P2
                             </span>
-                            <span className="text-xl">{safeGameState.players[1]?.name || 'Waiting...'}</span>
-                            <span className="text-4xl font-black mt-2 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]">O</span>
+                            <span className="text-sm md:text-xl truncate max-w-[80px] md:max-w-[150px]">{safeGameState.players[1]?.name || 'Waiting...'}</span>
+                            <span className="text-2xl md:text-4xl font-black mt-1 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]">O</span>
                         </div>
                     </div>
 
@@ -122,13 +122,13 @@ export default function TicTacToe() {
                             <motion.div
                                 initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
                                 animate={{ opacity: 1, backdropFilter: 'blur(10px)' }}
-                                className="absolute inset-0 bg-slate-950/80 rounded-xl flex flex-col items-center justify-center z-20"
+                                className="absolute inset-x-0 -inset-y-32 md:-inset-y-10 bg-slate-950/80 rounded-xl flex flex-col items-center justify-center z-20"
                             >
                                 <motion.div
                                     initial={{ scale: 0, scaleZ: 5 }}
                                     animate={{ scale: 1 }}
                                     transition={{ type: 'spring', bounce: 0.7, duration: 1 }}
-                                    className="text-6xl md:text-7xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 drop-shadow-[0_0_40px_rgba(255,255,255,0.6)] uppercase tracking-tighter"
+                                    className="text-4xl md:text-7xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 drop-shadow-[0_0_40px_rgba(255,255,255,0.6)] uppercase tracking-tighter"
                                 >
                                     {safeGameState.winner === 'draw' ? 'DRAW!' : safeGameState.winner === user.id ? 'VICTORY!' : 'DEFEAT!'}
                                 </motion.div>
@@ -137,13 +137,13 @@ export default function TicTacToe() {
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={handlePlayAgain}
-                                        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-2xl px-12 py-5 rounded-2xl transition-all shadow-[0_0_40px_rgba(59,130,246,0.6)] tracking-widest border-2 border-blue-400 uppercase"
+                                        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-xl md:text-2xl px-8 py-4 md:px-12 md:py-5 rounded-2xl transition-all shadow-[0_0_40px_rgba(59,130,246,0.6)] tracking-widest border-2 border-blue-400 uppercase"
                                     >
                                         Rematch
                                     </motion.button>
                                 )}
                                 {safeGameState.hostId !== user.id && (
-                                    <div className="mt-6 text-blue-400 text-lg tracking-widest bg-blue-950/50 px-8 py-4 rounded-xl border border-blue-900 animate-pulse">Awaiting Host...</div>
+                                    <div className="mt-6 text-blue-400 text-sm md:text-lg tracking-widest bg-blue-950/50 px-4 py-3 md:px-8 md:py-4 rounded-xl border border-blue-900 animate-pulse">Awaiting Host...</div>
                                 )}
                             </motion.div>
                         )}
