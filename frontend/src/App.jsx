@@ -103,6 +103,7 @@ function App() {
 
     socket.on('roomCreated', (code) => setRoomCode(code));
     socket.on('joinedRoom', (code) => setRoomCode(code));
+    socket.on('gameRestarted', () => setMyTickets([]));
 
     return () => {
       socket.off('gameStateUpdate');
@@ -112,6 +113,7 @@ function App() {
       socket.off('winnerDeclared');
       socket.off('roomCreated');
       socket.off('joinedRoom');
+      socket.off('gameRestarted');
     };
   }, []);
 

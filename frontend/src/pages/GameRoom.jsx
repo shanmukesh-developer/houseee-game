@@ -200,8 +200,18 @@ export default function GameRoom() {
                                 </div>
 
                                 {safeGameState.status === 'finished' && (
-                                    <div className="w-full max-w-sm mx-auto text-center py-4 rounded-xl bg-slate-800 border-2 border-slate-600 text-slate-300 font-bold text-xl uppercase tracking-widest mt-4">
-                                        Game Finished
+                                    <div className="w-full max-w-sm mx-auto text-center py-4 rounded-xl bg-slate-800 border-2 border-slate-600 text-slate-300 font-bold text-xl uppercase tracking-widest mt-4 flex flex-col items-center gap-4">
+                                        <div>Game Finished</div>
+                                        {isHost ? (
+                                            <button
+                                                onClick={() => socket.emit('restartGame', { roomCode, userId: user.id })}
+                                                className="bg-highlight text-black hover:bg-neonGreen transition-colors px-6 py-2 rounded-lg text-sm flex items-center gap-2 normal-case tracking-normal"
+                                            >
+                                                <PlayCircle size={18} /> Play Next Game
+                                            </button>
+                                        ) : (
+                                            <div className="text-sm text-slate-400 normal-case tracking-normal font-normal">Waiting for host to start next game...</div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -213,10 +223,24 @@ export default function GameRoom() {
                                 <button
                                     onClick={buyTicket}
                                     disabled={user.walletBalance < 2 || safeGameState.status === 'finished'}
-                                    className={`btn-neon text-xl py-4 px-12 inline-flex items-center gap-2 ${user.walletBalance < 2 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`btn-neon text-xl py-4 px-12 inline-flex items-center gap-2 ${(user.walletBalance < 2 || safeGameState.status === 'finished') ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <TicketIcon /> {user.walletBalance < 2 ? 'Insufficient Balance' : 'Buy Ticket (₹2)'}
                                 </button>
+                                {safeGameState.status === 'finished' && (
+                                    <div className="mt-8 text-slate-400 flex justify-center">
+                                        {isHost ? (
+                                            <button
+                                                onClick={() => socket.emit('restartGame', { roomCode, userId: user.id })}
+                                                className="bg-highlight text-black hover:bg-neonGreen transition-colors px-6 py-2 rounded-lg text-sm flex items-center gap-2 font-bold"
+                                            >
+                                                <PlayCircle size={18} /> Play Next Game
+                                            </button>
+                                        ) : (
+                                            "Waiting for host to start next game..."
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

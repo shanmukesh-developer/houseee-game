@@ -229,6 +229,24 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomCode);
   });
 
+  // Host Controls: Restart Game
+  socket.on('restartGame', ({ roomCode, userId }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.hostId !== userId) return;
+
+    room.status = 'waiting';
+    room.isPaused = true;
+    room.drawnNumbers = [];
+    room.tickets = {};
+    room.prizePool = 0;
+    room.winners = { jaldi5: null, rowTop: null, rowMid: null, rowBot: null, fullHouse: null, fourCorners: null, pyramid: null };
+    if (room.intervalId) clearInterval(room.intervalId);
+    room.intervalId = null;
+
+    io.to(roomCode).emit('gameRestarted');
+    broadcastRoomState(roomCode);
+  });
+
   socket.on('buyTicket', ({ userId, roomCode }) => {
     let user = DB.users[userId];
     let room = DB.rooms[roomCode];
@@ -296,7 +314,13 @@ io.on('connection', (socket) => {
       room.winners[claimType] = { userId, name: user.name, clan: user.clan };
 
       // Determine award
-      const award = claimType === 'fullHouse' ? room.prizePool : 0;
+      let awardPercentage = 0;
+      if (['jaldi5', 'rowTop', 'rowMid', 'rowBot'].includes(claimType)) {
+        awardPercentage = 0.10;
+      } else if (claimType === 'fullHouse') {
+        awardPercentage = 0.50;
+      }
+      const award = room.prizePool * awardPercentage;
 
       // Clan Shared Winnings Strategy (only applies to Full House)
       if (claimType === 'fullHouse' && user.clan) {
@@ -308,7 +332,7 @@ io.on('connection', (socket) => {
             const mUser = DB.users[member.id];
             if (mUser) {
               mUser.walletBalance += sharedAward;
-              addTransaction(member.id, 'credit', sharedAward, `Clan Share (${user.clan}): Full House in Room ${roomCode}`);
+              addTransaction(member.id, 'credit', sharedAward, `Clan Share (${user.clan}): ${claimType} in Room ${roomCode}`);
               const pIndex = room.players.findIndex(p => p.id === member.id);
               if (pIndex > -1) room.players[pIndex].walletBalance = mUser.walletBalance;
               // Update specific sockets in real-time
@@ -317,7 +341,7 @@ io.on('connection', (socket) => {
           });
         } else {
           user.walletBalance += award;
-          if (award > 0) addTransaction(userId, 'credit', award, `Won Full House in Room ${roomCode}`);
+          if (award > 0) addTransaction(userId, 'credit', award, `Won ${claimType} in Room ${roomCode}`);
           const pIndex = room.players.findIndex(p => p.id === userId);
           if (pIndex > -1) room.players[pIndex].walletBalance = user.walletBalance;
         }
@@ -333,6 +357,17 @@ io.on('connection', (socket) => {
         room.status = 'finished';
         room.isPaused = true;
         if (room.intervalId) clearInterval(room.intervalId);
+
+        // Host gets 10% commission on finish
+        const hostAward = room.prizePool * 0.10;
+        const hostUser = DB.users[room.hostId];
+        if (hostUser) {
+          hostUser.walletBalance += hostAward;
+          addTransaction(room.hostId, 'credit', hostAward, `Host Commission for Room ${roomCode}`);
+          const hostPIndex = room.players.findIndex(p => p.id === room.hostId);
+          if (hostPIndex > -1) room.players[hostPIndex].walletBalance = hostUser.walletBalance;
+          if (hostUser.socketId) io.to(hostUser.socketId).emit('walletUpdate', hostUser.walletBalance);
+        }
       }
 
       const pIndex = room.players.findIndex(p => p.id === userId);
