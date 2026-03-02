@@ -150,6 +150,7 @@ io.on('connection', (socket) => {
       drawnNumbers: [],
       tickets: {},
       prizePool: 0,
+      totalCollected: 0,
       status: 'waiting',
       isPaused: true,
       intervalId: null,
@@ -239,6 +240,7 @@ io.on('connection', (socket) => {
     room.drawnNumbers = [];
     room.tickets = {};
     room.prizePool = 0;
+    room.totalCollected = 0;
     room.winners = { jaldi5: null, rowTop: null, rowMid: null, rowBot: null, fullHouse: null, fourCorners: null, pyramid: null };
     if (room.intervalId) clearInterval(room.intervalId);
     room.intervalId = null;
@@ -252,21 +254,21 @@ io.on('connection', (socket) => {
     let room = DB.rooms[roomCode];
     if (!user || !room) return;
 
-    if (user.walletBalance >= 2 && !room.tickets[userId]) {
+    if (!room.tickets[userId]) {
+      room.tickets[userId] = [];
+    }
+
+    if (room.tickets[userId].length >= 3) {
+      return socket.emit('errorMsg', 'You have reached the maximum of 3 tickets!');
+    }
+
+    if (user.walletBalance >= 2) {
       user.walletBalance -= 2;
       room.prizePool += 2;
+      room.totalCollected = (room.totalCollected || 0) + 2;
 
       const pIndex = room.players.findIndex(p => p.id === userId);
       if (pIndex > -1) room.players[pIndex].walletBalance = user.walletBalance;
-
-      // Support multiple tickets logic
-      if (!room.tickets[userId]) {
-        room.tickets[userId] = [];
-      }
-
-      if (room.tickets[userId].length >= 3) {
-        return socket.emit('errorMsg', 'Maximum 3 tickets allowed per game.');
-      }
 
       const newTicket = generateTicket();
       room.tickets[userId].push(newTicket);
@@ -274,11 +276,9 @@ io.on('connection', (socket) => {
       addTransaction(userId, 'debit', 2, `Bought Ticket for Room ${roomCode}`);
 
       socket.emit('walletUpdate', user.walletBalance);
-      socket.emit('ticketUpdate', room.tickets[userId]); // send array of tickets back
+      socket.emit('ticketUpdate', room.tickets[userId]);
 
       broadcastRoomState(roomCode);
-    } else if (room.tickets[userId] && room.tickets[userId].length >= 3) {
-      socket.emit('errorMsg', 'You have reached the maximum of 3 tickets!');
     } else {
       socket.emit('errorMsg', 'Insufficient Balance!');
     }
@@ -320,7 +320,8 @@ io.on('connection', (socket) => {
       } else if (claimType === 'fullHouse') {
         awardPercentage = 0.50;
       }
-      const award = room.prizePool * awardPercentage;
+      const award = (room.totalCollected || room.prizePool) * awardPercentage;
+      room.prizePool = Math.max(0, room.prizePool - award);
 
       // Clan Shared Winnings Strategy (only applies to Full House)
       if (claimType === 'fullHouse' && user.clan) {
@@ -359,7 +360,8 @@ io.on('connection', (socket) => {
         if (room.intervalId) clearInterval(room.intervalId);
 
         // Host gets 10% commission on finish
-        const hostAward = room.prizePool * 0.10;
+        const hostAward = (room.totalCollected || room.prizePool) * 0.10;
+        room.prizePool = Math.max(0, room.prizePool - hostAward);
         const hostUser = DB.users[room.hostId];
         if (hostUser) {
           hostUser.walletBalance += hostAward;
@@ -384,6 +386,7 @@ io.on('connection', (socket) => {
       if (user.walletBalance >= 0.5) {
         user.walletBalance -= 0.5;
         room.prizePool += 0.5;
+        room.totalCollected = (room.totalCollected || 0) + 0.5;
 
         const pIndex = room.players.findIndex(p => p.id === userId);
         if (pIndex > -1) room.players[pIndex].walletBalance = user.walletBalance;

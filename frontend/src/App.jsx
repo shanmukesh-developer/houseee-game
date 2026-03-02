@@ -98,7 +98,9 @@ function App() {
       const labels = {
         jaldi5: 'Early 5', fourCorners: 'Four Corners', rowTop: 'Top Line', rowMid: 'Middle Line', rowBot: 'Bottom Line', fullHouse: 'Full House'
       };
-      alert(`🎉 HOUSEEE! ${winnerName} won ${labels[claimType]}!`);
+
+      const prizeText = prize > 0 ? ` and received ₹${prize}` : '';
+      alert(`🎉 HOUSEEE! ${winnerName} won ${labels[claimType]}${prizeText}!`);
     });
 
     socket.on('roomCreated', (code) => setRoomCode(code));
