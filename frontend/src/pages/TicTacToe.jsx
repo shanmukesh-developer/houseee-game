@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, KeySquare, Users, Crown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import EmojiOverlay from '../components/EmojiOverlay';
 import VoiceChat from '../components/VoiceChat';
 import VFXOverlay from '../components/VFXOverlay';

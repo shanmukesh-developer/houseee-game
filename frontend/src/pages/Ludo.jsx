@@ -1,8 +1,8 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
-import { Dice5, Trophy } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Dice5, Trophy, LogOut } from 'lucide-react';
 import VoiceChat from '../components/VoiceChat';
 import EmojiOverlay from '../components/EmojiOverlay';
 import VFXOverlay from '../components/VFXOverlay';

@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 import { Sparkles, Wallet, ShieldCheck, KeyRound, Crown, Trophy, Receipt, User } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Home() {
     const { user, setUser, socket, roomCode, gameType } = useContext(AppContext);

@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Dice5, Trophy } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import VoiceChat from '../components/VoiceChat';
 import EmojiOverlay from '../components/EmojiOverlay';
 import VFXOverlay from '../components/VFXOverlay';
@@ -428,7 +429,7 @@ export default function SnakesLadders() {
                                 } : { rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1, z: 0, y: 0 }}
                                 transition={{ duration: 0.8, times: [0, 0.25, 0.5, 0.75, 1], ease: "anticipate" }}
                                 className={`w - 28 h - 28 md: w - 32 md: h - 32 rounded - [25 %] flex items - center justify - center border - 4 shadow - 2xl transition - colors transform - style - 3d overflow - hidden ${!isMyTurn || safeGameState.winner ? 'bg-slate-800 border-slate-700 text-slate-600 opacity-50 cursor-not-allowed'
-                                        : 'bg-gradient-to-br from-green-400 to-emerald-700 border-green-300 text-green-950 hover:scale-[1.05] hover:rotate-3 shadow-[0_0_40px_rgba(34,197,94,0.6)] ring-4 ring-green-500/50'
+                                    : 'bg-gradient-to-br from-green-400 to-emerald-700 border-green-300 text-green-950 hover:scale-[1.05] hover:rotate-3 shadow-[0_0_40px_rgba(34,197,94,0.6)] ring-4 ring-green-500/50'
                                     } `}
                             >
                                 <div className="w-full h-full flex items-center justify-center relative drop-shadow-[0_6px_15px_rgba(0,0,0,0.6)]">

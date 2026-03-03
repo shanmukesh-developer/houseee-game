@@ -3,7 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import Ticket from '../components/Ticket';
 import { Users, Trophy, ChevronLeft, Ticket as TicketIcon, Zap, PlayCircle, PauseCircle, KeySquare, Crown } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { playSound } from '../utils/audio';
 
 export default function GameRoom() {

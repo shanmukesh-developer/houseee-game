@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, ChevronLeft, CalendarClock } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Leaderboard() {
     const [leaders, setLeaders] = useState([]);

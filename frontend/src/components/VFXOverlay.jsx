@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function VFXOverlay({ trigger, type, onComplete, message = '' }) {
     // trigger is a boolean or counter that changes when VFX should play
