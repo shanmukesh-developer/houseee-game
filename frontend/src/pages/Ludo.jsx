@@ -334,14 +334,13 @@ export default function Ludo() {
                                     return (
                                         <motion.div
                                             layout
-                                            initial={{ scale: 0, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
+                                            initial={{ scale: 0, opacity: 0, left: `${(coords.x / 15) * 100}%`, top: `${(coords.y / 15) * 100}%` }}
+                                            animate={{ scale: 1, opacity: 1, left: `${(coords.x / 15) * 100}%`, top: `${(coords.y / 15) * 100}%` }}
                                             exit={{ scale: 0, opacity: 0 }}
+                                            transition={{ type: 'spring', stiffness: 50, damping: 12, mass: 1 }}
                                             key={`${p.id}-t${tIdx}`}
                                             className="absolute flex items-center justify-center pointer-events-none z-30"
                                             style={{
-                                                left: `${(coords.x / 15) * 100}%`,
-                                                top: `${(coords.y / 15) * 100}%`,
                                                 width: `${100 / 15}%`,
                                                 height: `${100 / 15}%`,
                                             }}
@@ -387,7 +386,7 @@ export default function Ludo() {
                                     y: [0, -40, 20, -10, 0]
                                 } : { rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1, z: 0, y: 0 }}
                                 transition={{ duration: 0.8, times: [0, 0.25, 0.5, 0.75, 1], ease: "anticipate" }}
-                                className={`w-16 h-16 md:w-28 md:h-28 rounded-[20%] flex flex-col items-center justify-center border-[3px] md:border-4 shadow-[0_10px_20px_rgba(0,0,0,0.8),inset_0_5px_15px_rgba(255,255,255,0.4)] transition-colors transform-style-3d overflow-hidden ${!isMyTurn || safeGameState.winner ? 'bg-gradient-to-b from-slate-300 to-slate-500 border-slate-600 opacity-90 cursor-not-allowed'
+                                className={`w-16 h-16 md:w-28 md:h-28 rounded-[20%] flex flex-col items-center justify-center border-[3px] md:border-4 shadow-[0_10px_20px_rgba(0,0,0,0.8),inset_0_5px_15px_rgba(255,255,255,0.4)] transition-colors ${!isMyTurn || safeGameState.winner ? 'bg-gradient-to-b from-slate-300 to-slate-500 border-slate-600 opacity-90 cursor-not-allowed'
                                     : safeGameState.diceRolled ? 'bg-gradient-to-b from-yellow-300 to-yellow-600 border-yellow-700 text-yellow-950 cursor-default shadow-[0_0_30px_rgba(234,179,8,0.8)]'
                                         : 'bg-gradient-to-b from-[#ffedb5] to-[#f5b82e] border-[#b07b1e] text-[#5e410b] hover:scale-105 shadow-[0_0_50px_rgba(234,179,8,1)] ring-4 ring-yellow-400'
                                     }`}
