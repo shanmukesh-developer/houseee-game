@@ -1,8 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, KeySquare, Users, Crown } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import EmojiOverlay from '../components/EmojiOverlay';
 import VoiceChat from '../components/VoiceChat';
 import VFXOverlay from '../components/VFXOverlay';
@@ -28,7 +27,6 @@ export default function TicTacToe() {
 
     const safeGameState = gameState || { players: [], winner: null, turn: null, board: Array(9).fill(null) };
     const board = safeGameState.board || Array(9).fill(null);
-    const mySymbol = safeGameState.hostId === user?.id ? 'X' : 'O';
     const isMyTurn = safeGameState.turn === user?.id;
 
     const [vfxType, setVfxType] = useState(null);
@@ -37,8 +35,10 @@ export default function TicTacToe() {
     const prevWinner = React.useRef(safeGameState.winner);
     useEffect(() => {
         if (!prevWinner.current && safeGameState.winner && safeGameState.winner !== 'draw') {
-            setVfxType('victory');
-            setVfxTrigger(v => v + 1);
+            setTimeout(() => {
+                setVfxType('victory');
+                setVfxTrigger(v => v + 1);
+            }, 0);
         }
         prevWinner.current = safeGameState.winner;
     }, [safeGameState.winner]);
@@ -117,13 +117,12 @@ export default function TicTacToe() {
 
                     <div className="w-[85vmin] h-[85vmin] md:aspect-square md:h-auto md:w-full max-w-[400px] mx-auto bg-slate-950 rounded-[2rem] border-[6px] border-blue-500/40 p-3 grid grid-cols-3 gap-3 relative z-10 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
                         {board.map((cell, i) => (
-                            <motion.div
+                            <div
                                 key={i}
                                 className={`bg-slate-900 rounded-2xl flex items-center justify-center text-7xl md:text-8xl font-black cursor-pointer overflow-hidden relative shadow-[inset_0_4px_20px_rgba(0,0,0,0.5)] ${!cell && isMyTurn && safeGameState.status !== 'finished' ? 'hover:bg-blue-900/20 hover:shadow-[inset_0_0_20px_rgba(59,130,246,0.5)] border border-slate-800 hover:border-blue-500/50 transition-all' : 'border border-slate-800'}`}
                                 onClick={() => handleMove(i)}
-                                whileTap={!cell && isMyTurn ? { scale: 0.9, rotate: (Math.random() - 0.5) * 10 } : {}}
                             >
-                                <AnimatePresence>
+                                <div className="animate-presence-wrapper">
                                     {cell && (
                                         <motion.div
                                             initial={{ scale: 5, rotate: cell === 'X' ? 180 : -180, opacity: 0, filter: 'blur(20px)' }}
@@ -134,8 +133,8 @@ export default function TicTacToe() {
                                             {cell}
                                         </motion.div>
                                     )}
-                                </AnimatePresence>
-                            </motion.div>
+                                </div>
+                            </div>
                         ))}
 
                         {/* WIN OVERLAY */}

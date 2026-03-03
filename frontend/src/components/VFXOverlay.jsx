@@ -1,20 +1,45 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 
-export default function VFXOverlay({ trigger, type, onComplete, color = '#EF4444', message = '' }) {
+export default function VFXOverlay({ trigger, type, onComplete, message = '' }) {
     // trigger is a boolean or counter that changes when VFX should play
     const [active, setActive] = useState(false);
 
     useEffect(() => {
         if (trigger) {
-            setActive(true);
+            setTimeout(() => {
+                setActive(true);
+            }, 0);
             const timer = setTimeout(() => {
                 setActive(false);
                 if (onComplete) onComplete();
             }, 2500); // 2.5s duration
             return () => clearTimeout(timer);
         }
-    }, [trigger]);
+    }, [trigger, onComplete]);
+
+    const [killParticles, setKillParticles] = useState([]);
+    const [victoryParticles, setVictoryParticles] = useState([]);
+
+    useEffect(() => {
+        setTimeout(() => {
+            setKillParticles([...Array(20)].map((_, i) => ({
+                id: i,
+                scaleStart: Math.random() * 2 + 1,
+                xEnd: (Math.random() - 0.5) * window.innerWidth,
+                yEnd: (Math.random() - 0.5) * window.innerHeight
+            })));
+
+            setVictoryParticles([...Array(60)].map((_, i) => ({
+                id: i,
+                scaleStart: Math.random() * 1.5 + 0.5,
+                xEnd: (Math.random() - 0.5) * window.innerWidth * 1.5,
+                yEnd: (Math.random() - 1) * window.innerHeight,
+                rotateEnd: Math.random() * 720,
+                bgColor: ['#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#A855F7', '#EC4899'][Math.floor(Math.random() * 6)]
+            })));
+        }, 0);
+    }, []);
 
     if (!active) return null;
 
@@ -40,17 +65,17 @@ export default function VFXOverlay({ trigger, type, onComplete, color = '#EF4444
                     </motion.div>
 
                     {/* Splatter particles */}
-                    {[...Array(20)].map((_, i) => (
+                    {killParticles.map((p) => (
                         <motion.div
-                            key={i}
+                            key={p.id}
                             initial={{
                                 x: 0, y: 0,
-                                scale: Math.random() * 2 + 1,
+                                scale: p.scaleStart,
                                 opacity: 1
                             }}
                             animate={{
-                                x: (Math.random() - 0.5) * window.innerWidth,
-                                y: (Math.random() - 0.5) * window.innerHeight,
+                                x: p.xEnd,
+                                y: p.yEnd,
                                 scale: 0,
                                 opacity: 0
                             }}
@@ -84,23 +109,23 @@ export default function VFXOverlay({ trigger, type, onComplete, color = '#EF4444
                     </motion.div>
 
                     {/* Confetti Explosion */}
-                    {[...Array(60)].map((_, i) => (
+                    {victoryParticles.map((p) => (
                         <motion.div
-                            key={i}
+                            key={p.id}
                             initial={{
                                 x: 0, y: 100,
-                                scale: Math.random() * 1.5 + 0.5,
+                                scale: p.scaleStart,
                                 rotate: 0
                             }}
                             animate={{
-                                x: (Math.random() - 0.5) * window.innerWidth * 1.5,
-                                y: (Math.random() - 1) * window.innerHeight,
-                                rotate: Math.random() * 720
+                                x: p.xEnd,
+                                y: p.yEnd,
+                                rotate: p.rotateEnd
                             }}
                             transition={{ duration: 2, ease: "easeOut" }}
                             className="absolute w-6 h-6 rounded-sm shadow-[0_0_15px_currentColor]"
                             style={{
-                                backgroundColor: ['#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#A855F7', '#EC4899'][Math.floor(Math.random() * 6)],
+                                backgroundColor: p.bgColor,
                             }}
                         />
                     ))}

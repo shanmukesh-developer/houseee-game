@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, ChevronLeft, CalendarClock } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 
 export default function Leaderboard() {
     const [leaders, setLeaders] = useState([]);
@@ -44,16 +44,16 @@ export default function Leaderboard() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: index * 0.1 }}
                                 className={`flex items-center justify-between p-4 rounded-xl border ${index === 0 ? 'bg-yellow-500/10 border-yellow-500/30' :
-                                        index === 1 ? 'bg-slate-300/10 border-slate-300/30' :
-                                            index === 2 ? 'bg-amber-700/10 border-amber-700/30' :
-                                                'bg-slate-800/50 border-slate-700/50'
+                                    index === 1 ? 'bg-slate-300/10 border-slate-300/30' :
+                                        index === 2 ? 'bg-amber-700/10 border-amber-700/30' :
+                                            'bg-slate-800/50 border-slate-700/50'
                                     }`}
                             >
                                 <div className="flex items-center gap-4">
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg ${index === 0 ? 'bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.5)]' :
-                                            index === 1 ? 'bg-slate-300 text-black' :
-                                                index === 2 ? 'bg-amber-700 text-white' :
-                                                    'bg-slate-800 text-slate-400'
+                                        index === 1 ? 'bg-slate-300 text-black' :
+                                            index === 2 ? 'bg-amber-700 text-white' :
+                                                'bg-slate-800 text-slate-400'
                                         }`}>
                                         {index + 1}
                                     </div>

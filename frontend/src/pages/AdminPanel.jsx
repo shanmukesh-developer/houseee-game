@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { AppContext } from '../App';
+import React, { useContext, useEffect } from 'react';
+import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Users, PlusCircle, MinusCircle, Play } from 'lucide-react';
 
@@ -18,7 +18,7 @@ export default function AdminPanel() {
     const handleWalletChange = async (userId, amount, action) => {
         try {
             // Connect to the HTTP route for manual adjustments
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/admin/wallet`, {
+            await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'} /api/admin / wallet`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, amount, action })
@@ -62,7 +62,7 @@ export default function AdminPanel() {
                     <div className="space-y-4">
                         <div className="flex justify-between items-center bg-slate-800/50 p-4 rounded-xl">
                             <span className="text-slate-400">Status</span>
-                            <span className={`font-bold tracking-widest uppercase ${gameState.status === 'active' ? 'text-green-400' : gameState.status === 'finished' ? 'text-red-400' : 'text-yellow-400'}`}>
+                            <span className={`font - bold tracking - widest uppercase ${gameState.status === 'active' ? 'text-green-400' : gameState.status === 'finished' ? 'text-red-400' : 'text-yellow-400'} `}>
                                 {gameState.status}
                             </span>
                         </div>
@@ -124,7 +124,7 @@ export default function AdminPanel() {
                                             <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
                                         </td>
                                         <td className="py-4">
-                                            <span className={`font-mono text-lg ${p.walletBalance >= 2 ? 'text-neonGreen' : 'text-red-400'}`}>
+                                            <span className={`font - mono text - lg ${p.walletBalance >= 2 ? 'text-neonGreen' : 'text-red-400'} `}>
                                                 ₹{p.walletBalance}
                                             </span>
                                         </td>

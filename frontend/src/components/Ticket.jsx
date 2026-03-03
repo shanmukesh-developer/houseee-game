@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { playSound } from '../utils/audio';
 
 export default function Ticket({ ticketData, drawnNumbers, onClaim, winners }) {
     const [isAutoMark, setIsAutoMark] = useState(false);
     const [manualMarks, setManualMarks] = useState([]);
 
+    // Store local fallback ticketId immediately so we don't re-render an impure Math.random() string.
+    const [localId] = useState(() => Math.random().toString(36).substr(2, 6).toUpperCase());
+
     useEffect(() => {
         if (isAutoMark) {
-            setManualMarks([...drawnNumbers]);
+            setTimeout(() => setManualMarks([...drawnNumbers]), 0);
         }
     }, [drawnNumbers, isAutoMark]);
 
@@ -82,13 +84,10 @@ export default function Ticket({ ticketData, drawnNumbers, onClaim, winners }) {
                                 const isMarked = isNumber && manualMarks.includes(cellValue);
 
                                 return (
-                                    <motion.div
+                                    <div
                                         key={`${rowIndex}-${colIndex}`}
                                         onClick={() => handleCellClick(cellValue)}
-                                        initial={{ scale: 0.8, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        transition={{ delay: (rowIndex * 9 + colIndex) * 0.02 }}
-                                        className={`flex items-center justify-center border aspect-square w-full rounded text-sm sm:text-lg md:text-2xl font-black ${!isAutoMark && isNumber ? 'cursor-pointer' : ''}
+                                        className={`flex items-center justify-center border aspect-square w-full rounded text-sm sm:text-lg md:text-2xl font-black transition-all ${!isAutoMark && isNumber ? 'cursor-pointer' : ''}
                         ${!isNumber ? 'bg-transparent border-slate-800' :
                                                 isMarked
                                                     ? 'bg-highlight border-highlight text-black shadow-[0_0_15px_rgba(34,197,94,0.6)] scale-105'
@@ -99,17 +98,15 @@ export default function Ticket({ ticketData, drawnNumbers, onClaim, winners }) {
                                         {isNumber ? cellValue : ''}
 
                                         {isMarked && (
-                                            <motion.div
-                                                initial={{ scale: 0, rotate: -45 }}
-                                                animate={{ scale: 1, rotate: 0 }}
+                                            <div
                                                 className="absolute w-full h-full flex items-center justify-center text-black/20 pointer-events-none"
                                             >
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" className="w-8 h-8">
                                                     <polyline points="20 6 9 17 4 12" />
                                                 </svg>
-                                            </motion.div>
+                                            </div>
                                         )}
-                                    </motion.div>
+                                    </div>
                                 );
                             })}
                         </div>
@@ -117,7 +114,7 @@ export default function Ticket({ ticketData, drawnNumbers, onClaim, winners }) {
                 </div>
 
                 <div className="mt-4 flex justify-between items-center text-slate-400 text-xs md:text-sm font-medium uppercase tracking-widest border-t border-slate-800 pt-3 md:pt-4 px-2">
-                    <span>ID: {ticketData.ticketId || Math.random().toString(36).substr(2, 6).toUpperCase()}</span>
+                    <span>ID: {ticketData.ticketId || localId}</span>
                     <span className="text-highlight font-bold">
                         {markedCount}/15
                     </span>

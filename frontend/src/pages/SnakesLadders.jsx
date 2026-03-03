@@ -1,7 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, Dice5, Trophy } from 'lucide-react';
 import VoiceChat from '../components/VoiceChat';
 import EmojiOverlay from '../components/EmojiOverlay';
@@ -27,7 +26,9 @@ export default function SnakesLadders() {
                 setCurrentFace(Math.floor(Math.random() * 6) + 1);
             }, 80); // Fast 80ms flicker
         } else if (safeGameState.dice) {
-            setCurrentFace(safeGameState.dice);
+            setTimeout(() => {
+                setCurrentFace(safeGameState.dice);
+            }, 0);
         }
         return () => clearInterval(interval);
     }, [isRolling, safeGameState.dice]);
@@ -37,16 +38,18 @@ export default function SnakesLadders() {
     useEffect(() => {
         if (safeGameState.history?.length > prevHistoryLength.current) {
             const latest = safeGameState.history[safeGameState.history.length - 1];
-            if (latest.victim) {
-                setVfxType('kill');
-                setVfxTrigger(v => v + 1);
-            } else if (latest.type === 'snake') {
-                setVfxType('snake');
-                setVfxTrigger(v => v + 1);
-            } else if (latest.type === 'ladder') {
-                setVfxType('ladder');
-                setVfxTrigger(v => v + 1);
-            }
+            setTimeout(() => {
+                if (latest.victim) {
+                    setVfxType('kill');
+                    setVfxTrigger(v => v + 1);
+                } else if (latest.type === 'snake') {
+                    setVfxType('snake');
+                    setVfxTrigger(v => v + 1);
+                } else if (latest.type === 'ladder') {
+                    setVfxType('ladder');
+                    setVfxTrigger(v => v + 1);
+                }
+            }, 0);
         }
         prevHistoryLength.current = safeGameState.history?.length || 0;
     }, [safeGameState.history]);
@@ -55,8 +58,10 @@ export default function SnakesLadders() {
     const prevWinner = React.useRef(safeGameState.winner);
     useEffect(() => {
         if (!prevWinner.current && safeGameState.winner) {
-            setVfxType('victory');
-            setVfxTrigger(v => v + 1);
+            setTimeout(() => {
+                setVfxType('victory');
+                setVfxTrigger(v => v + 1);
+            }, 0);
         }
         prevWinner.current = safeGameState.winner;
     }, [safeGameState.winner]);
@@ -174,8 +179,8 @@ export default function SnakesLadders() {
                                         animate={{
                                             scale: 1,
                                             opacity: 1,
-                                            left: `${coords.x}%`,
-                                            top: `${coords.y}%`
+                                            left: `${coords.x}% `,
+                                            top: `${coords.y}% `
                                         }}
                                         transition={{
                                             type: "spring", stiffness: 45, damping: 12, mass: 1.2
@@ -236,7 +241,7 @@ export default function SnakesLadders() {
                             }
 
                             return (
-                                <g key={`ladder-${start}`} style={{ filter: 'drop-shadow(3px 5px 4px rgba(0,0,0,0.8))' }}>
+                                <g key={`ladder - ${start} `} style={{ filter: 'drop-shadow(3px 5px 4px rgba(0,0,0,0.8))' }}>
                                     {/* Left Rail (Thick 3D) */}
                                     <line x1={p1.x - 2.5} y1={p1.y} x2={p2.x - 2.5} y2={p2.y} stroke="#280f01" strokeWidth="2.5" strokeLinecap="round" />
                                     <line x1={p1.x - 2.5} y1={p1.y} x2={p2.x - 2.5} y2={p2.y} stroke="url(#ladder-wood)" strokeWidth="1.5" strokeLinecap="round" />
@@ -276,40 +281,40 @@ export default function SnakesLadders() {
                             const patternColor = isViper ? "#3B2F2F" : isPython ? "#1A2421" : "#2A1B14";
 
                             return (
-                                <g key={`snake-${start}`} style={{ filter: 'drop-shadow(2px 4px 4px rgba(0,0,0,0.6))' }}>
+                                <g key={`snake - ${start} `} style={{ filter: 'drop-shadow(2px 4px 4px rgba(0,0,0,0.6))' }}>
 
                                     {/* Core Path Definition for anatomical tapering */}
                                     <path
-                                        id={`snake-path-${start}`}
-                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y}`}
+                                        id={`snake - path - ${start} `}
+                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y} `}
                                         fill="none"
                                         stroke="none"
                                     />
 
                                     {/* 1. Base Shadow & Thick Body */}
                                     <path
-                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y}`}
+                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y} `}
                                         stroke="#111" strokeWidth="5.5" fill="none"
                                         strokeLinecap="round"
                                     />
 
                                     {/* 2. Main Body (Darker top scales) */}
                                     <path
-                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y}`}
+                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y} `}
                                         stroke={bodyColor} strokeWidth="4.5" fill="none"
                                         strokeLinecap="round"
                                     />
 
                                     {/* 3. Biological Pattern (Diamond/Bands) */}
                                     <path
-                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y}`}
+                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y} `}
                                         stroke={patternColor} strokeWidth="2.5" fill="none"
                                         strokeDasharray={isPython ? "4 2" : "3 4"} strokeLinecap="round" opacity="0.85"
                                     />
 
                                     {/* 4. Belly / Highlights (Underbelly shine) */}
                                     <path
-                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y}`}
+                                        d={`M ${p1.x} ${p1.y} C ${p1.x - curveOffset} ${p1.y + (dy * 0.3)}, ${p2.x + curveOffset} ${p2.y - (dy * 0.3)}, ${p2.x} ${p2.y} `}
                                         stroke={bellyColor} strokeWidth="1" fill="none"
                                         strokeDasharray="1 6" strokeLinecap="round" opacity="0.6"
                                     />
@@ -375,10 +380,10 @@ export default function SnakesLadders() {
                             }
 
                             return (
-                                <div key={cellNum} className={`relative flex items-center justify-center p-0.5 md:p-1 border-[1px] ${borderStyle} ${bgColor} transition-colors`} style={{ boxShadow: innerBevel }}>
+                                <div key={cellNum} className={`relative flex items - center justify - center p - 0.5 md: p - 1 border - [1px] ${borderStyle} ${bgColor} transition - colors`} style={{ boxShadow: innerBevel }}>
 
                                     {/* Number Styling */}
-                                    <span className={`absolute top-1 left-2 font-black tracking-tighter text-[10px] sm:text-sm md:text-xl lg:text-2xl pointer-events-none select-none z-30 ${isStart ? 'text-green-300 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]' : isEnd ? 'text-yellow-300 drop-shadow-[0_0_8px_rgba(253,224,71,0.8)]' : 'text-slate-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] opacity-90'}`}>
+                                    <span className={`absolute top - 1 left - 2 font - black tracking - tighter text - [10px] sm: text - sm md: text - xl lg: text - 2xl pointer - events - none select - none z - 30 ${isStart ? 'text-green-300 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]' : isEnd ? 'text-yellow-300 drop-shadow-[0_0_8px_rgba(253,224,71,0.8)]' : 'text-slate-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] opacity-90'} `}>
                                         {cellNum}
                                     </span>
 
@@ -400,7 +405,7 @@ export default function SnakesLadders() {
                             {safeGameState.winner ? (
                                 <span className="text-yellow-500 font-black uppercase text-xs animate-pulse flex items-center gap-1"><Trophy size={14} /> Game Over</span>
                             ) : (
-                                <span className={`${isMyTurn ? 'text-green-500' : 'text-slate-500'} font-black uppercase text-xs flex items-center gap-2`}>
+                                <span className={`${isMyTurn ? 'text-green-500' : 'text-slate-500'} font - black uppercase text - xs flex items - center gap - 2`}>
                                     {isMyTurn ? (
                                         <><span className="w-2 h-2 rounded-full bg-green-500 animate-ping"></span> YOUR TURN</>
                                     ) : 'WAITING...'}
@@ -409,22 +414,24 @@ export default function SnakesLadders() {
                         </div>
 
                         {/* GIANT SNAKE 3D DICE */}
-                        <div className="relative perspective-[1000px]">
+                        <div className="relative perspective-[1500px]">
                             <motion.button
                                 onClick={handleRoll}
                                 disabled={!isMyTurn || isRolling || safeGameState.winner}
                                 animate={isRolling ? {
-                                    rotateX: [0, 360, 720, 1080],
-                                    rotateY: [0, 180, 540, 720],
-                                    scale: [1, 1.3, 0.7, 1.2, 0.9],
-                                    z: [0, 100, -50, 0]
-                                } : { rotateX: 0, rotateY: 0, scale: 1, z: 0 }}
-                                transition={{ duration: 0.6, ease: "easeInOut" }}
-                                className={`w-28 h-28 md:w-32 md:h-32 rounded-[25%] flex items-center justify-center border-4 shadow-2xl transition-all transform-style-3d overflow-hidden ${!isMyTurn || safeGameState.winner ? 'bg-slate-800 border-slate-700 text-slate-600 opacity-50 cursor-not-allowed'
-                                    : 'bg-gradient-to-br from-green-400 to-emerald-700 border-green-300 text-green-950 hover:scale-110 hover:rotate-6 shadow-[0_0_40px_rgba(34,197,94,0.6)] ring-4 ring-green-500/50'
-                                    }`}
+                                    rotateX: [0, 400, -200, 720, 1080],
+                                    rotateY: [0, 360, 900, -180, 720],
+                                    rotateZ: [0, 180, -90, 360, 0],
+                                    scale: [1, 1.4, 0.6, 1.1, 1],
+                                    z: [0, 150, -80, 50, 0],
+                                    y: [0, -40, 20, -10, 0]
+                                } : { rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1, z: 0, y: 0 }}
+                                transition={{ duration: 0.8, times: [0, 0.25, 0.5, 0.75, 1], ease: "anticipate" }}
+                                className={`w - 28 h - 28 md: w - 32 md: h - 32 rounded - [25 %] flex items - center justify - center border - 4 shadow - 2xl transition - colors transform - style - 3d overflow - hidden ${!isMyTurn || safeGameState.winner ? 'bg-slate-800 border-slate-700 text-slate-600 opacity-50 cursor-not-allowed'
+                                        : 'bg-gradient-to-br from-green-400 to-emerald-700 border-green-300 text-green-950 hover:scale-[1.05] hover:rotate-3 shadow-[0_0_40px_rgba(34,197,94,0.6)] ring-4 ring-green-500/50'
+                                    } `}
                             >
-                                <div className="w-full h-full flex items-center justify-center relative drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
+                                <div className="w-full h-full flex items-center justify-center relative drop-shadow-[0_6px_15px_rgba(0,0,0,0.6)]">
                                     {/* Dynamic Dice Dots based on value 1 to 6 */}
                                     {currentFace === 1 && (
                                         <div className="w-4 h-4 md:w-6 md:h-6 bg-white rounded-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"></div>
@@ -499,7 +506,7 @@ export default function SnakesLadders() {
                             {safeGameState.players?.slice().sort((a, b) => (safeGameState.positions?.[b.id] || 0) - (safeGameState.positions?.[a.id] || 0)).map((p) => {
                                 const pos = safeGameState.positions?.[p.id] || 0;
                                 return (
-                                    <div key={p.id} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${safeGameState.turn === p.id ? 'bg-slate-800 shadow-lg border-l-4 border-green-500' : 'bg-slate-950 block transform scale-[0.98]'}`}>
+                                    <div key={p.id} className={`flex items - center gap - 3 p - 3 rounded - xl transition - all ${safeGameState.turn === p.id ? 'bg-slate-800 shadow-lg border-l-4 border-green-500' : 'bg-slate-950 block transform scale-[0.98]'} `}>
                                         <div className="w-8 h-8 rounded-full border-2 bg-slate-900 flex items-center justify-center font-black text-xs shadow-inner" style={{ borderColor: getPlayerColor(p.id), color: getPlayerColor(p.id) }}>
                                             {pos}
                                         </div>

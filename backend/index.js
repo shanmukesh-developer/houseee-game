@@ -377,12 +377,14 @@ io.on('connection', (socket) => {
 
       // Determine award
       let awardPercentage = 0;
-      if (['jaldi5', 'rowTop', 'rowMid', 'rowBot'].includes(claimType)) {
+      if (['jaldi5', 'fourCorners', 'rowTop', 'rowMid', 'rowBot'].includes(claimType)) {
         awardPercentage = 0.10;
       } else if (claimType === 'fullHouse') {
         awardPercentage = 0.50;
       }
-      const award = (room.totalCollected || room.prizePool) * awardPercentage;
+
+      // ALWAYS calculate the award from the INITIAL total collected, not the shrinking prizePool
+      const award = (room.totalCollected) * awardPercentage;
       room.prizePool = Math.max(0, room.prizePool - award);
 
       // Clan Shared Winnings Strategy (only applies to Full House)

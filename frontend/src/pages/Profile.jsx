@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { User, ChevronLeft, Target, Trophy, Flame, Users, LogOut } from 'lucide-react';
 export default function Profile() {

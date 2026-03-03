@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from '../context/AppContext';
 import { Mic, MicOff } from 'lucide-react';
 
 export default function VoiceChat() {
     const { user, socket, roomCode, gameState } = useContext(AppContext);
     const [isMuted, setIsMuted] = useState(true);
     const [stream, setStream] = useState(null);
-    const [isWebrtcReady, setIsWebrtcReady] = useState(false);
     const peerConnectionRef = useRef(null);
     const remoteAudioRef = useRef(null);
 
@@ -72,7 +71,7 @@ export default function VoiceChat() {
         const handleCandidate = async ({ candidate }) => {
             try {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
-            } catch (e) { }
+            } catch { /* ignore */ }
         };
 
         socket.on('webrtcOffer', handleOffer);
@@ -86,7 +85,7 @@ export default function VoiceChat() {
                     const offer = await pc.createOffer({ offerToReceiveAudio: true });
                     await pc.setLocalDescription(offer);
                     socket.emit('webrtcOffer', { roomCode, offer, targetId: opponent.id, callerId: user.id });
-                } catch (e) { }
+                } catch { /* ignore */ }
             }
         });
 

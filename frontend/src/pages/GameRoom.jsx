@@ -1,9 +1,9 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import Ticket from '../components/Ticket';
 import { Users, Trophy, ChevronLeft, Ticket as TicketIcon, Zap, PlayCircle, PauseCircle, KeySquare, Crown } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { playSound } from '../utils/audio';
 
 export default function GameRoom() {
@@ -157,7 +157,7 @@ export default function GameRoom() {
                                         {safeGameState.drawnNumbers[0]}
                                     </motion.div>
 
-                                    {safeGameState.drawnNumbers.slice(1, 6).map((num, i) => (
+                                    {safeGameState.drawnNumbers.slice(1, 6).map((num) => (
                                         <motion.div
                                             key={num}
                                             initial={{ opacity: 0, x: -20 }}

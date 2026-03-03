@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Receipt, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 
 export default function Ledger() {
     const [transactions, setTransactions] = useState([]);

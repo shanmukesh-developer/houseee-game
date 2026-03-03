@@ -1,8 +1,8 @@
-import React, { useContext, useState } from 'react';
-import { AppContext } from '../App';
+import React, { useContext, useState, useEffect } from 'react';
+import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Dice5, Trophy, Crown } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { Dice5, Trophy } from 'lucide-react';
 import VoiceChat from '../components/VoiceChat';
 import EmojiOverlay from '../components/EmojiOverlay';
 import VFXOverlay from '../components/VFXOverlay';
@@ -374,18 +374,20 @@ export default function Ludo() {
                         </AnimatePresence>
 
                         {/* GIANT ABSOLUTE OVERLAY DICE BUTTON */}
-                        <div className="absolute bottom-[2%] right-[2%] z-[100] flex flex-col items-center pointer-events-auto">
+                        <div className="absolute bottom-[2%] right-[2%] z-[100] flex flex-col items-center pointer-events-auto perspective-[1500px]">
                             <motion.button
                                 onClick={handleRoll}
                                 disabled={!isMyTurn || safeGameState.diceRolled || isRolling || safeGameState.winner}
                                 animate={isRolling ? {
-                                    rotateX: [0, 360, 720, 1080],
-                                    rotateY: [0, 180, 540, 720],
-                                    scale: [1, 1.2, 0.8, 1.1, 1],
-                                    z: [0, 100, -50, 0]
-                                } : { rotateX: 0, rotateY: 0, scale: 1, z: 0 }}
-                                transition={{ duration: 0.6, ease: "easeInOut" }}
-                                className={`w-16 h-16 md:w-28 md:h-28 rounded-[20%] flex flex-col items-center justify-center border-[3px] md:border-4 shadow-[0_10px_20px_rgba(0,0,0,0.8),inset_0_5px_15px_rgba(255,255,255,0.4)] transition-all transform-style-3d overflow-hidden ${!isMyTurn || safeGameState.winner ? 'bg-gradient-to-b from-slate-300 to-slate-500 border-slate-600 opacity-90 cursor-not-allowed'
+                                    rotateX: [0, 400, -200, 720, 1080],
+                                    rotateY: [0, 360, 900, -180, 720],
+                                    rotateZ: [0, 180, -90, 360, 0],
+                                    scale: [1, 1.4, 0.6, 1.1, 1],
+                                    z: [0, 150, -80, 50, 0],
+                                    y: [0, -40, 20, -10, 0]
+                                } : { rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1, z: 0, y: 0 }}
+                                transition={{ duration: 0.8, times: [0, 0.25, 0.5, 0.75, 1], ease: "anticipate" }}
+                                className={`w-16 h-16 md:w-28 md:h-28 rounded-[20%] flex flex-col items-center justify-center border-[3px] md:border-4 shadow-[0_10px_20px_rgba(0,0,0,0.8),inset_0_5px_15px_rgba(255,255,255,0.4)] transition-colors transform-style-3d overflow-hidden ${!isMyTurn || safeGameState.winner ? 'bg-gradient-to-b from-slate-300 to-slate-500 border-slate-600 opacity-90 cursor-not-allowed'
                                     : safeGameState.diceRolled ? 'bg-gradient-to-b from-yellow-300 to-yellow-600 border-yellow-700 text-yellow-950 cursor-default shadow-[0_0_30px_rgba(234,179,8,0.8)]'
                                         : 'bg-gradient-to-b from-[#ffedb5] to-[#f5b82e] border-[#b07b1e] text-[#5e410b] hover:scale-105 shadow-[0_0_50px_rgba(234,179,8,1)] ring-4 ring-yellow-400'
                                     }`}

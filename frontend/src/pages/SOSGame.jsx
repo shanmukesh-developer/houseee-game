@@ -1,8 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, KeySquare, Users, Crown } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import EmojiOverlay from '../components/EmojiOverlay';
 import VoiceChat from '../components/VoiceChat';
 import VFXOverlay from '../components/VFXOverlay';
@@ -38,8 +37,11 @@ export default function SOSGame() {
     const prevWinner = React.useRef(safeGameState.winner);
     useEffect(() => {
         if (!prevWinner.current && safeGameState.winner && safeGameState.winner !== 'draw') {
-            setVfxType('victory');
-            setVfxTrigger(v => v + 1);
+            // setTimeout to avoid synchronous cascade re-render loop
+            setTimeout(() => {
+                setVfxType('victory');
+                setVfxTrigger(v => v + 1);
+            }, 0);
         }
         prevWinner.current = safeGameState.winner;
     }, [safeGameState.winner]);

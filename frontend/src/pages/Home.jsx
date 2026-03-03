@@ -1,11 +1,11 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppContext } from '../App';
-import { Sparkles, Play, Wallet, ShieldCheck, KeyRound, Crown, Trophy, Receipt, User } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { AppContext } from '../context/AppContext';
+import { Sparkles, Wallet, ShieldCheck, KeyRound, Crown, Trophy, Receipt, User } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 
 export default function Home() {
-    const { user, setUser, socket, roomCode, gameType, setGameType } = useContext(AppContext);
+    const { user, setUser, socket, roomCode, gameType } = useContext(AppContext);
     const [nameInput, setNameInput] = useState(user?.name || '');
     const [joinCode, setJoinCode] = useState('');
     const [selectedGame, setSelectedGame] = useState('houseee');

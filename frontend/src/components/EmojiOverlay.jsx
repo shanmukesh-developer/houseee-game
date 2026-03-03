@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { AppContext } from '../App';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AppContext } from '../context/AppContext';
+import { AnimatePresence } from 'framer-motion';
 
 export default function EmojiOverlay() {
     const { socket } = useContext(AppContext);
@@ -14,6 +14,7 @@ export default function EmojiOverlay() {
                 id,
                 emoji,
                 x: Math.random() * 80 + 10, // 10% to 90% wide
+                clientX: Math.random() * 20 - 10 // Store local variation offset for predictable rendering
             };
             setEmojis(prev => [...prev, newEmoji]);
 
@@ -34,7 +35,7 @@ export default function EmojiOverlay() {
                     <motion.div
                         key={e.id}
                         initial={{ opacity: 0, y: 100, scale: 0.5, x: `${e.x}vw` }}
-                        animate={{ opacity: 1, y: -800, scale: 3, x: `${e.x + (Math.random() * 20 - 10)}vw` }}
+                        animate={{ opacity: 1, y: -800, scale: 3, x: `${e.clientX}vw` }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 2.5, ease: "easeOut" }}
                         className="absolute bottom-0 text-6xl drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]"
