@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useRef, useCallback } from 'rea
 import { AppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, LogOut, RotateCcw } from 'lucide-react';
+import { Trophy, LogOut, RotateCcw, Star } from 'lucide-react';
 import { playSound } from '../utils/audio';
 
 const SHAPES = [
@@ -32,8 +32,48 @@ const SHAPES = [
 ];
 
 const BOARD_SIZE = 8;
-const GAP = 3; // px gap between cells
+const GAP = 3;
+const HS_KEY = 'blockblast_highscore';
+
 const createEmptyBoard = () => Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+
+// ── Scoring helper: how valuable is placing this shape somewhere on this board? ──
+// Returns a score based on how many partially-filled lines the shape would contribute to.
+function shapeLineScore(shape, boardState) {
+    let best = 0;
+    for (let sr = 0; sr <= BOARD_SIZE - shape.length; sr++) {
+        for (let sc = 0; sc <= BOARD_SIZE - shape[0].length; sc++) {
+            // check placement validity
+            let valid = true;
+            for (let r = 0; r < shape.length && valid; r++)
+                for (let c = 0; c < shape[r].length && valid; c++)
+                    if (shape[r][c] === 1 && boardState[sr + r][sc + c] !== null) valid = false;
+
+            if (!valid) continue;
+
+            // simulate
+            const sim = boardState.map(row => [...row]);
+            for (let r = 0; r < shape.length; r++)
+                for (let c = 0; c < shape[r].length; c++)
+                    if (shape[r][c] === 1) sim[sr + r][sc + c] = 1;
+
+            // count near-complete rows and cols
+            let score = 0;
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                const filled = sim[r].filter(v => v !== null).length;
+                if (filled === BOARD_SIZE) score += 100; // complete!
+                else if (filled >= 6) score += filled * 3;
+            }
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                const filled = sim.filter(row => row[c] !== null).length;
+                if (filled === BOARD_SIZE) score += 100;
+                else if (filled >= 6) score += filled * 3;
+            }
+            if (score > best) best = score;
+        }
+    }
+    return best;
+}
 
 export default function BlockBlast() {
     const { user, setRoomCode, setGameType } = useContext(AppContext);
@@ -41,32 +81,41 @@ export default function BlockBlast() {
 
     const [board, setBoard] = useState(createEmptyBoard());
     const [score, setScore] = useState(0);
+    const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem(HS_KEY) || '0', 10));
     const [blocks, setBlocks] = useState([]);
-    const [nudgeMessage, setNudgeMessage] = useState(null); // Tip nudge instead of game over
+    const [nudgeMessage, setNudgeMessage] = useState(null);
     const [shake, setShake] = useState(false);
     const [comboMessage, setComboMessage] = useState(null);
     const [clearingCells, setClearingCells] = useState([]);
     const [hoverPos, setHoverPos] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);   // Just a flag to show/hide ghost
 
-    // Real measured cell size in pixels
+    // Board measurement
     const boardRef = useRef(null);
+    const boardRectRef = useRef(null);
     const [cellSize, setCellSize] = useState(48);
 
-    // Drag state
-    const [dragState, setDragState] = useState({
-        isDragging: false,
-        blockIndex: null,
-        pointerX: 0,
-        pointerY: 0,
-    });
+    // ── Drag tracking via REFS only (no re-renders on pointermove) ──
+    const dragRef = useRef({ blockIndex: null, pointerX: 0, pointerY: 0 });
+    const rafRef = useRef(null);
 
-    // ── Measure board to get accurate cell size ──────────────
+    // Separate ref for ghost position (DOM-manipulated directly for perf)
+    const ghostRef = useRef(null);
+
+    // State refs for use inside event listeners (avoids stale closures)
+    const boardStateRef = useRef(board);
+    const blocksRef = useRef(blocks);
+    const cellSizeRef = useRef(cellSize);
+    useEffect(() => { boardStateRef.current = board; }, [board]);
+    useEffect(() => { blocksRef.current = blocks; }, [blocks]);
+    useEffect(() => { cellSizeRef.current = cellSize; }, [cellSize]);
+
+    // ── Measure board ──────────────────────────────────────────
     useEffect(() => {
         const measure = () => {
             if (boardRef.current) {
-                const boardWidth = boardRef.current.offsetWidth;
-                // total gap between cells: (BOARD_SIZE - 1) * GAP. Plus outer padding handled by CSS.
-                const cs = (boardWidth - GAP * (BOARD_SIZE - 1)) / BOARD_SIZE;
+                boardRectRef.current = boardRef.current.getBoundingClientRect();
+                const cs = (boardRef.current.offsetWidth - GAP * (BOARD_SIZE - 1)) / BOARD_SIZE;
                 setCellSize(Math.floor(cs));
             }
         };
@@ -75,82 +124,84 @@ export default function BlockBlast() {
         return () => window.removeEventListener('resize', measure);
     }, []);
 
-    // ── Placement helpers (defined before generateBlocks uses them) ─────
-    const isValidPlacement = useCallback((shape, startRow, startCol, boardState = board) => {
-        for (let r = 0; r < shape.length; r++) {
-            for (let c = 0; c < shape[r].length; c++) {
-                if (shape[r][c] !== 1) continue;
-                const br = startRow + r;
-                const bc = startCol + c;
-                if (br < 0 || br >= BOARD_SIZE || bc < 0 || bc >= BOARD_SIZE) return false;
-                if (boardState[br][bc] !== null) return false;
-            }
-        }
+    // ── Placement helpers ──────────────────────────────────────
+    const isValidPlacement = useCallback((shape, sr, sc, bState) => {
+        const b = bState || boardStateRef.current;
+        for (let r = 0; r < shape.length; r++)
+            for (let c = 0; c < shape[r].length; c++)
+                if (shape[r][c] === 1) {
+                    const br = sr + r, bc = sc + c;
+                    if (br < 0 || br >= BOARD_SIZE || bc < 0 || bc >= BOARD_SIZE || b[br][bc] !== null) return false;
+                }
         return true;
-    }, [board]);
+    }, []);
 
-    const canPlaceBlockAnywhere = useCallback((shape, boardState = board) => {
+    const canPlaceBlockAnywhere = useCallback((shape, bState) => {
+        const b = bState || boardStateRef.current;
         for (let r = 0; r < BOARD_SIZE; r++)
             for (let c = 0; c < BOARD_SIZE; c++)
-                if (isValidPlacement(shape, r, c, boardState)) return true;
+                if (isValidPlacement(shape, r, c, b)) return true;
         return false;
-    }, [isValidPlacement, board]);
+    }, [isValidPlacement]);
 
-    // ── Anti-frustration block generation: always pick shapes that fit ──
-    const generateBlocks = useCallback((boardState = board) => {
+    // ── Smart line-biased generation ──────────────────────────
+    const generateBlocks = useCallback((bState) => {
+        const b = bState || boardStateRef.current;
         const newBlocks = [];
+
+        // Shuffle once, then pick best-scoring shape that fits
+        const shuffled = [...SHAPES].sort(() => Math.random() - 0.5);
+
         for (let slot = 0; slot < 3; slot++) {
-            // Shuffle shapes and pick the first one that fits
-            const shuffled = [...SHAPES].sort(() => Math.random() - 0.5);
-            let picked = shuffled[0]; // fallback
-            // try to find a shape that actually fits on the current board
-            for (const candidate of shuffled) {
-                if (canPlaceBlockAnywhere(candidate.shape, boardState)) {
-                    picked = candidate;
-                    break;
-                }
+            // Filter shapes that can fit on the board
+            const fittable = shuffled.filter(s => canPlaceBlockAnywhere(s.shape, b));
+            let picked;
+
+            if (fittable.length > 0) {
+                // Sort by line-clearing potential and pick from top-3 randomly for variety
+                const scored = fittable
+                    .map(s => ({ s, score: shapeLineScore(s.shape, b) }))
+                    .sort((a, b) => b.score - a.score);
+                const top = scored.slice(0, Math.min(3, scored.length));
+                picked = top[Math.floor(Math.random() * top.length)].s;
+            } else {
+                // Board is truly full — pick a 1-cell shape as emergency
+                picked = SHAPES[0];
             }
             newBlocks.push({ ...picked, id: Math.random().toString(36).slice(2), isUsed: false });
         }
         setBlocks(newBlocks);
-    }, [board, canPlaceBlockAnywhere]);
+    }, [canPlaceBlockAnywhere]);
 
     useEffect(() => {
         if (blocks.length === 0) generateBlocks();
     }, [blocks, generateBlocks]);
 
-    // ── Stuck detection: show nudge, then regenerate smaller pieces ──
+    // ── Stuck detection ────────────────────────────────────────
     useEffect(() => {
         if (!blocks.length) return;
         const available = blocks.filter(b => !b.isUsed);
-        if (!available.length) {
-            generateBlocks();
-            return;
-        }
-        const canPlace = available.some(b => canPlaceBlockAnywhere(b.shape));
-        if (!canPlace) {
-            // Board is too full — nudge the player and give them tiny pieces
+        if (!available.length) { generateBlocks(); return; }
+        const stuck = !available.some(b => canPlaceBlockAnywhere(b.shape));
+        if (stuck) {
             setNudgeMessage('💡 Board is full! Clear some lines!');
             setTimeout(() => setNudgeMessage(null), 2500);
-            // Give fallback: single-cell or 1x2 pieces that will definitely fit somewhere
-            const tinyShapes = SHAPES.filter(s => s.shape.flat().filter(v => v === 1).length <= 2);
-            const fallback = tinyShapes.sort(() => Math.random() - 0.5).slice(0, 3);
+            // Give tiny fall-back pieces guaranteed to fit
+            const tiny = SHAPES.filter(s => s.shape.flat().filter(v => v === 1).length <= 2);
+            const fallback = tiny.sort(() => Math.random() - 0.5).slice(0, 3);
             setBlocks(fallback.map(s => ({ ...s, id: Math.random().toString(36).slice(2), isUsed: false })));
         }
     }, [board, blocks, canPlaceBlockAnywhere, generateBlocks]);
 
-    // ── Place block on board ──────────────────────────────────
-    const placeBlock = useCallback((block, startRow, startCol, blockIndex) => {
+    // ── Place block ────────────────────────────────────────────
+    const placeBlock = useCallback((block, sr, sc, blockIndex) => {
         const shape = block.shape;
-        const color = block.color;
-        const newBoard = board.map(row => [...row]);
-
+        const newBoard = boardStateRef.current.map(row => [...row]);
         for (let r = 0; r < shape.length; r++)
             for (let c = 0; c < shape[r].length; c++)
-                if (shape[r][c] === 1) newBoard[startRow + r][startCol + c] = color;
+                if (shape[r][c] === 1) newBoard[sr + r][sc + c] = block.color;
 
-        const newBlocksState = [...blocks];
-        newBlocksState[blockIndex] = { ...newBlocksState[blockIndex], isUsed: true };
+        const newBlocksState = blocksRef.current.map((b, i) => i === blockIndex ? { ...b, isUsed: true } : b);
         setBlocks(newBlocksState);
 
         let rowsToClear = [];
@@ -161,11 +212,11 @@ export default function BlockBlast() {
             if (newBoard.every(row => row[c] !== null)) colsToClear.push(c);
 
         const linesCleared = rowsToClear.length + colsToClear.length;
-        let pointsEarned = 10 + shape.flat().filter(v => v === 1).length * 5;
-
+        const cells = shape.flat().filter(v => v === 1).length;
+        let pts = 10 + cells * 5;
         if (linesCleared > 0) {
-            pointsEarned += linesCleared * 100 + (linesCleared > 1 ? 50 * linesCleared : 0);
-            let msg = linesCleared >= 4 ? 'UNBELIEVABLE!' : linesCleared === 3 ? 'AWESOME!' : linesCleared === 2 ? `COMBO x2!` : 'GREAT!';
+            pts += linesCleared * 100 + (linesCleared > 1 ? 50 * linesCleared : 0);
+            const msg = linesCleared >= 4 ? '🔥 UNBELIEVABLE!' : linesCleared === 3 ? '✨ AWESOME!' : linesCleared === 2 ? '⚡ COMBO x2!' : '🎯 GREAT!';
             setComboMessage(msg);
             setShake(true);
             setTimeout(() => setShake(false), 350);
@@ -175,149 +226,196 @@ export default function BlockBlast() {
             rowsToClear.forEach(r => { for (let c = 0; c < BOARD_SIZE; c++) cellsToAnimate.add(`${r}-${c}`); });
             colsToClear.forEach(c => { for (let r = 0; r < BOARD_SIZE; r++) cellsToAnimate.add(`${r}-${c}`); });
             setClearingCells([...cellsToAnimate]);
-
             setBoard([...newBoard]);
+            try { playSound('error'); } catch (_) { }
 
             setTimeout(() => {
                 rowsToClear.forEach(r => { for (let c = 0; c < BOARD_SIZE; c++) newBoard[r][c] = null; });
                 colsToClear.forEach(c => { for (let r = 0; r < BOARD_SIZE; r++) newBoard[r][c] = null; });
-                setScore(prev => prev + pointsEarned);
+                const currentHS = parseInt(localStorage.getItem(HS_KEY) || '0', 10);
+                setScore(prev => {
+                    const next = prev + pts;
+                    if (next > currentHS) {
+                        localStorage.setItem(HS_KEY, String(next));
+                        setHighScore(next);
+                    }
+                    return next;
+                });
                 setBoard([...newBoard]);
                 setClearingCells([]);
             }, 320);
             return;
         }
-
-        setScore(prev => prev + pointsEarned);
+        setScore(prev => {
+            const next = prev + pts;
+            if (next > parseInt(localStorage.getItem(HS_KEY) || '0', 10)) {
+                localStorage.setItem(HS_KEY, String(next));
+                setHighScore(next);
+            }
+            return next;
+        });
         setBoard(newBoard);
-    }, [board, blocks]);
+    }, []);
 
-    // ── Drag handlers ─────────────────────────────────────────
-    const getSnappedPos = useCallback((pointerX, pointerY, shape) => {
-        if (!boardRef.current) return null;
-        const rect = boardRef.current.getBoundingClientRect();
-        // how many cells wide/tall is this shape
-        const shapeW = shape[0].length;
-        const shapeH = shape.length;
-        // Pointer offset: we show shape above pointer, centered
-        const blockPxW = shapeW * cellSize + (shapeW - 1) * GAP;
-        const blockPxH = shapeH * cellSize + (shapeH - 1) * GAP;
-        const floatLeft = pointerX - blockPxW / 2;
-        const floatTop = pointerY - blockPxH - 28; // 28px above pointer
+    // ── Snap calculation (pure function, no state reads) ──────
+    const getSnappedPos = useCallback((px, py, shape) => {
+        const rect = boardRectRef.current;
+        if (!rect) return null;
+        const cs = cellSizeRef.current;
+        const blockPxW = shape[0].length * cs + (shape[0].length - 1) * GAP;
+        const blockPxH = shape.length * cs + (shape.length - 1) * GAP;
+        const relX = (px - blockPxW / 2) - rect.left;
+        const relY = (py - blockPxH - 28) - rect.top;
+        return { row: Math.round(relY / (cs + GAP)), col: Math.round(relX / (cs + GAP)) };
+    }, []);
 
-        // Convert floating block top-left to board-relative coords
-        const relX = floatLeft - rect.left;
-        const relY = floatTop - rect.top;
-        const col = Math.round(relX / (cellSize + GAP));
-        const row = Math.round(relY / (cellSize + GAP));
-        return { row, col };
-    }, [cellSize]);
-
+    // ── Drag handlers (pointer move mutates ref + updates ghost DOM directly) ──
     const handlePointerDown = useCallback((e, index) => {
-        if (blocks[index]?.isUsed || gameOver) return;
+        if (blocksRef.current[index]?.isUsed) return;
         e.preventDefault();
         document.body.style.overflow = 'hidden';
-        setDragState({ isDragging: true, blockIndex: index, pointerX: e.clientX, pointerY: e.clientY });
-    }, [blocks, gameOver]);
+        dragRef.current = { blockIndex: index, pointerX: e.clientX, pointerY: e.clientY };
+        setIsDragging(true);
+        setHoverPos(null);
+    }, []);
 
     const handlePointerMove = useCallback((e) => {
-        if (!dragState.isDragging || dragState.blockIndex === null) return;
-        setDragState(prev => ({ ...prev, pointerX: e.clientX, pointerY: e.clientY }));
+        // Guard: only process when actively dragging and a block is selected
+        if (!isDragging || dragRef.current.blockIndex === null) return;
+        dragRef.current.pointerX = e.clientX;
+        dragRef.current.pointerY = e.clientY;
 
-        const shape = blocks[dragState.blockIndex]?.shape;
+        // Move ghost via DOM ref (bypass React render entirely)
+        const shape = blocksRef.current[dragRef.current.blockIndex]?.shape;
         if (!shape) return;
+
+        const cs = cellSizeRef.current;
+        const blockPxW = shape[0].length * cs + (shape[0].length - 1) * GAP;
+        const blockPxH = shape.length * cs + (shape.length - 1) * GAP;
+
         const pos = getSnappedPos(e.clientX, e.clientY, shape);
-        if (pos && isValidPlacement(shape, pos.row, pos.col)) {
-            setHoverPos(pos);
-        } else {
-            setHoverPos(null);
+        const valid = pos && isValidPlacement(shape, pos.row, pos.col);
+
+        // Update hover pos for grid highlight (this triggers a targeted re-render)
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(() => {
+            setHoverPos(valid ? pos : null);
+        });
+
+        // Direct DOM move for ghost (NO React state update = NO re-render)
+        if (ghostRef.current) {
+            let gLeft, gTop;
+            if (valid && boardRectRef.current) {
+                gLeft = boardRectRef.current.left + pos.col * (cs + GAP);
+                gTop = boardRectRef.current.top + pos.row * (cs + GAP);
+                ghostRef.current.style.transition = 'left 0.07s ease-out, top 0.07s ease-out, transform 0.08s';
+                ghostRef.current.style.transform = 'scale(1)';
+                ghostRef.current.style.opacity = '0.85';
+            } else {
+                gLeft = e.clientX - blockPxW / 2;
+                gTop = e.clientY - blockPxH - 28;
+                ghostRef.current.style.transition = 'transform 0.08s';
+                ghostRef.current.style.transform = 'scale(1.08)';
+                ghostRef.current.style.opacity = '0.95';
+            }
+            ghostRef.current.style.left = gLeft + 'px';
+            ghostRef.current.style.top = gTop + 'px';
         }
-    }, [dragState, blocks, getSnappedPos, isValidPlacement]);
+    }, [getSnappedPos, isValidPlacement]);
 
     const handlePointerUp = useCallback(() => {
-        if (!dragState.isDragging) return;
-        if (hoverPos !== null && dragState.blockIndex !== null) {
-            placeBlock(blocks[dragState.blockIndex], hoverPos.row, hoverPos.col, dragState.blockIndex);
+        if (hoverPos !== null && dragRef.current.blockIndex !== null) {
+            const bi = dragRef.current.blockIndex;
+            const block = blocksRef.current[bi];
+            placeBlock(block, hoverPos.row, hoverPos.col, bi);
             try { playSound('win'); } catch (_) { }
         }
-        setDragState({ isDragging: false, blockIndex: null, pointerX: 0, pointerY: 0 });
+        dragRef.current = { blockIndex: null, pointerX: 0, pointerY: 0 };
+        setIsDragging(false);
         setHoverPos(null);
         document.body.style.overflow = '';
-    }, [dragState, hoverPos, blocks, placeBlock]);
+    }, [hoverPos, placeBlock]);
 
     useEffect(() => {
-        if (dragState.isDragging) {
-            window.addEventListener('pointermove', handlePointerMove, { passive: false });
+        if (isDragging) {
+            window.addEventListener('pointermove', handlePointerMove, { passive: true });
             window.addEventListener('pointerup', handlePointerUp);
         }
         return () => {
             window.removeEventListener('pointermove', handlePointerMove);
             window.removeEventListener('pointerup', handlePointerUp);
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
         };
-    }, [dragState.isDragging, handlePointerMove, handlePointerUp]);
+    }, [isDragging, handlePointerMove, handlePointerUp]);
 
-    // ── Preview clearing cells ────────────────────────────────
-    let previewClearingCells = new Set();
-    if (hoverPos && dragState.isDragging && dragState.blockIndex !== null) {
-        const activeShape = blocks[dragState.blockIndex]?.shape;
-        if (activeShape) {
-            const simBoard = board.map(row => [...row]);
-            for (let r = 0; r < activeShape.length; r++)
-                for (let c = 0; c < activeShape[r].length; c++)
-                    if (activeShape[r][c] === 1) {
-                        const sr = hoverPos.row + r, sc = hoverPos.col + c;
-                        if (sr >= 0 && sr < BOARD_SIZE && sc >= 0 && sc < BOARD_SIZE) simBoard[sr][sc] = 1;
-                    }
-            for (let r = 0; r < BOARD_SIZE; r++)
-                if (simBoard[r].every(c => c !== null)) for (let c = 0; c < BOARD_SIZE; c++) previewClearingCells.add(`${r}-${c}`);
-            for (let c = 0; c < BOARD_SIZE; c++)
-                if (simBoard.every(row => row[c] !== null)) for (let r = 0; r < BOARD_SIZE; r++) previewClearingCells.add(`${r}-${c}`);
-        }
-    }
+    // ── Preview clear ──────────────────────────────────────────
+    const previewClearingCells = React.useMemo(() => {
+        const set = new Set();
+        if (!hoverPos || !isDragging || dragRef.current.blockIndex === null) return set;
+        const shape = blocks[dragRef.current.blockIndex]?.shape;
+        if (!shape) return set;
+        const sim = board.map(row => [...row]);
+        for (let r = 0; r < shape.length; r++)
+            for (let c = 0; c < shape[r].length; c++)
+                if (shape[r][c] === 1) {
+                    const sr = hoverPos.row + r, sc = hoverPos.col + c;
+                    if (sr >= 0 && sr < BOARD_SIZE && sc >= 0 && sc < BOARD_SIZE) sim[sr][sc] = 1;
+                }
+        for (let r = 0; r < BOARD_SIZE; r++)
+            if (sim[r].every(v => v !== null)) for (let c = 0; c < BOARD_SIZE; c++) set.add(`${r}-${c}`);
+        for (let c = 0; c < BOARD_SIZE; c++)
+            if (sim.every(row => row[c] !== null)) for (let r = 0; r < BOARD_SIZE; r++) set.add(`${r}-${c}`);
+        return set;
+    }, [hoverPos, isDragging, blocks, board]);
 
-    const restartGame = () => { setBoard(createEmptyBoard()); setScore(0); setBlocks([]); setNudgeMessage(null); };
+    const restartGame = () => {
+        setBoard(createEmptyBoard());
+        setScore(0);
+        setBlocks([]);
+        setNudgeMessage(null);
+        setIsDragging(false);
+    };
     const leaveRoom = () => { setRoomCode(null); setGameType(null); navigate('/'); };
-
-    // ── Floating ghost block position ─────────────────────────
-    const activeShape = dragState.isDragging && dragState.blockIndex !== null ? blocks[dragState.blockIndex]?.shape : null;
-    const ghostLeft = activeShape ? dragState.pointerX - (activeShape[0].length * cellSize + (activeShape[0].length - 1) * GAP) / 2 : 0;
-    const ghostTop = activeShape ? dragState.pointerY - (activeShape.length * cellSize + (activeShape.length - 1) * GAP) - 28 : 0;
-
     if (!user) return null;
 
-    // Nudge tip toast (non-blocking)
-
-    // Tray block cell size: smaller than grid, proportional
-    const trayCellSize = Math.max(20, Math.floor(cellSize * 0.6));
-    const trayGap = 3;
+    const trayCellSize = Math.max(18, Math.floor(cellSize * 0.58));
+    const activeBlock = isDragging && dragRef.current.blockIndex !== null ? blocks[dragRef.current.blockIndex] : null;
+    const isNewHighscore = score > 0 && score >= highScore;
 
     return (
         <div
             className="fixed inset-0 flex flex-col items-center bg-slate-950 text-white font-sans overflow-hidden touch-none select-none"
-            style={{ userSelect: 'none' }}
         >
             {/* Ambient glow */}
             <div className="absolute top-0 left-1/4 w-[60vw] h-[60vw] bg-violet-700/10 blur-[150px] rounded-full pointer-events-none" />
             <div className="absolute bottom-0 right-1/4 w-[50vw] h-[50vw] bg-cyan-500/8 blur-[120px] rounded-full pointer-events-none" />
 
             {/* Header */}
-            <div className="w-full flex items-center justify-between px-4 py-3 relative z-10 flex-shrink-0">
-                <button onClick={leaveRoom} className="p-3 bg-red-700/80 hover:bg-red-600 text-white rounded-xl transition-colors shadow-lg border border-red-900 backdrop-blur-sm flex-shrink-0">
+            <div className="w-full flex items-center justify-between px-4 py-3 relative z-10 flex-shrink-0 gap-2">
+                <button onClick={leaveRoom} className="p-3 bg-red-700/80 hover:bg-red-600 text-white rounded-xl transition-colors border border-red-900 flex-shrink-0">
                     <LogOut size={20} />
                 </button>
-                <div className="text-center">
+
+                {/* Score + Highscore */}
+                <div className="text-center flex-1">
                     <div className="text-[10px] text-cyan-400 font-black tracking-[0.3em] uppercase mb-0.5">BLOCK BLAST</div>
-                    <div className="text-3xl font-black text-white tracking-wider flex items-center justify-center gap-2">
-                        <Trophy size={26} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" />
-                        <span className="drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">{score.toLocaleString()}</span>
+                    <div className="flex items-center justify-center gap-3">
+                        <div className={`text-3xl font-black tracking-wider ${isNewHighscore ? 'text-yellow-300 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]' : 'text-white'}`}>
+                            {score.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-500 border border-slate-700 px-2 py-1 rounded-lg flex items-center gap-1">
+                            <Star size={10} className="text-yellow-500 fill-yellow-500" />
+                            <span className="font-bold text-yellow-400">{highScore.toLocaleString()}</span>
+                        </div>
                     </div>
                 </div>
+
                 <button onClick={restartGame} className="p-3 bg-slate-800/80 hover:bg-slate-700 text-white rounded-xl transition-colors border border-slate-700 flex-shrink-0">
                     <RotateCcw size={20} />
                 </button>
             </div>
 
-            {/* GAME BOARD — fills remaining vertical space */}
+            {/* Game Board */}
             <motion.div
                 className="flex-1 w-full flex items-center justify-center px-4 relative z-10"
                 animate={shake ? { x: [-10, 10, -10, 10, 0], y: [-6, 6, -6, 6, 0] } : {}}
@@ -331,8 +429,8 @@ export default function BlockBlast() {
                     <AnimatePresence>
                         {nudgeMessage && (
                             <motion.div
-                                initial={{ opacity: 0, y: -20 }}
-                                animate={{ opacity: 1, y: 0 }}
+                                initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: -20 }}
                                 className="absolute top-3 left-1/2 -translate-x-1/2 z-50 bg-amber-500/90 text-black font-black text-sm px-4 py-2 rounded-xl shadow-2xl backdrop-blur-sm whitespace-nowrap pointer-events-none border border-amber-300"
                             >
@@ -341,7 +439,7 @@ export default function BlockBlast() {
                         )}
                     </AnimatePresence>
 
-                    {/* Combo message */}
+                    {/* Combo */}
                     <AnimatePresence>
                         {comboMessage && (
                             <motion.div
@@ -352,8 +450,8 @@ export default function BlockBlast() {
                                 className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
                             >
                                 <span
-                                    className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-tr from-yellow-300 via-orange-500 to-red-500 drop-shadow-[0_0_30px_rgba(255,140,0,0.9)] tracking-wider"
-                                    style={{ WebkitTextStroke: '2px rgba(255,255,255,0.6)' }}
+                                    className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-tr from-yellow-300 via-orange-500 to-red-500 tracking-wider drop-shadow-[0_0_30px_rgba(255,140,0,0.9)]"
+                                    style={{ WebkitTextStroke: '2px rgba(255,255,255,0.55)' }}
                                 >
                                     {comboMessage}
                                 </span>
@@ -371,150 +469,119 @@ export default function BlockBlast() {
                             gap: `${GAP}px`,
                         }}
                     >
-                        {board.map((row, rIndex) =>
-                            row.map((cellColor, cIndex) => {
-                                // Highlight overlay
+                        {board.map((row, rIdx) =>
+                            row.map((cellColor, cIdx) => {
                                 let isHovered = false;
                                 let hoverColor = null;
-                                if (hoverPos && dragState.isDragging && dragState.blockIndex !== null) {
-                                    const shape = blocks[dragState.blockIndex]?.shape;
+                                if (hoverPos && isDragging && dragRef.current.blockIndex !== null) {
+                                    const shape = blocks[dragRef.current.blockIndex]?.shape;
                                     if (shape) {
-                                        const ro = rIndex - hoverPos.row;
-                                        const co = cIndex - hoverPos.col;
+                                        const ro = rIdx - hoverPos.row, co = cIdx - hoverPos.col;
                                         if (ro >= 0 && ro < shape.length && co >= 0 && co < shape[ro].length && shape[ro][co] === 1 && !cellColor) {
                                             isHovered = true;
-                                            hoverColor = blocks[dragState.blockIndex].color;
+                                            hoverColor = blocks[dragRef.current.blockIndex].color;
                                         }
                                     }
                                 }
-                                const isClearing = clearingCells.includes(`${rIndex}-${cIndex}`);
-                                const isPreview = previewClearingCells.has(`${rIndex}-${cIndex}`);
+                                const isClearing = clearingCells.includes(`${rIdx}-${cIdx}`);
+                                const isPreview = previewClearingCells.has(`${rIdx}-${cIdx}`);
 
                                 return (
-                                    <div
-                                        key={`${rIndex}-${cIndex}`}
-                                        style={{
-                                            width: cellSize,
-                                            height: cellSize,
-                                            borderRadius: Math.max(4, cellSize * 0.1),
-                                            backgroundColor: isClearing
-                                                ? '#fff'
-                                                : isHovered ? hoverColor
-                                                    : isPreview ? '#fef08a'
-                                                        : cellColor || 'rgba(30,35,50,0.7)',
-                                            boxShadow: isClearing
-                                                ? '0 0 30px 12px rgba(255,255,255,0.9)'
-                                                : isPreview
-                                                    ? 'inset 0 0 12px rgba(255,255,255,0.7), 0 0 18px rgba(253,224,71,0.5)'
-                                                    : cellColor
-                                                        ? `inset 0 0 ${cellSize * 0.2}px rgba(255,255,255,0.25), 0 2px 8px ${cellColor}88`
-                                                        : isHovered
-                                                            ? `inset 0 0 8px rgba(255,255,255,0.4)`
-                                                            : 'inset 0 0 4px rgba(0,0,0,0.5)',
-                                            opacity: isHovered ? 0.75 : 1,
-                                            transform: isClearing
-                                                ? 'scale(0.05)'
-                                                : isPreview ? 'scale(1.07)'
-                                                    : 'scale(1)',
-                                            transition: isClearing
-                                                ? 'all 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-                                                : 'all 0.08s ease-out',
-                                        }}
-                                    />
+                                    <div key={`${rIdx}-${cIdx}`} style={{
+                                        width: cellSize, height: cellSize,
+                                        borderRadius: Math.max(4, cellSize * 0.1),
+                                        backgroundColor: isClearing ? '#fff' : isHovered ? hoverColor : isPreview ? '#fef08a' : cellColor || 'rgba(28,32,46,0.9)',
+                                        boxShadow: isClearing
+                                            ? '0 0 30px 12px rgba(255,255,255,0.9)'
+                                            : isPreview
+                                                ? 'inset 0 0 12px rgba(255,255,255,0.7), 0 0 18px rgba(253,224,71,0.5)'
+                                                : cellColor
+                                                    ? `inset 0 0 ${cellSize * 0.2}px rgba(255,255,255,0.22), 0 2px 8px ${cellColor}88`
+                                                    : isHovered
+                                                        ? `inset 0 0 8px rgba(255,255,255,0.4)`
+                                                        : 'inset 0 0 4px rgba(0,0,0,0.6)',
+                                        opacity: isHovered ? 0.75 : 1,
+                                        transform: isClearing ? 'scale(0.05)' : isPreview ? 'scale(1.07)' : 'scale(1)',
+                                        transition: isClearing
+                                            ? 'all 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                                            : 'background-color 0.08s, box-shadow 0.08s, transform 0.08s',
+                                    }} />
                                 );
                             })
                         )}
                     </div>
-
-                    {/* No game over — game is endless! */}
                 </div>
             </motion.div>
 
             {/* Block Tray */}
-            <div className="w-full flex-shrink-0 flex justify-center items-end gap-4 px-6 py-4 relative z-20">
-                <div className="flex justify-center items-center gap-4 sm:gap-6">
-                    {blocks.map((block, index) => {
-                        const isCurrentlyDragging = dragState.isDragging && dragState.blockIndex === index;
-                        if (block.isUsed) {
-                            // Placeholder to preserve layout
-                            return <div key={block.id} className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0" />;
-                        }
-                        return (
-                            <motion.div
-                                key={block.id}
-                                layout
-                                initial={{ scale: 0, y: 40, opacity: 0 }}
-                                animate={{ scale: isCurrentlyDragging ? 0 : 1, y: 0, opacity: isCurrentlyDragging ? 0 : 1 }}
-                                exit={{ scale: 0, opacity: 0 }}
-                                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                                onPointerDown={(e) => handlePointerDown(e, index)}
-                                className="flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700/50 rounded-2xl shadow-xl cursor-pointer hover:border-slate-500 active:scale-95 transition-colors flex-shrink-0"
-                                style={{ width: '88px', height: '88px', touchAction: 'none' }}
-                            >
-                                {/* Render block preview in tray at scale */}
-                                <div
-                                    className="grid"
-                                    style={{
-                                        gridTemplateColumns: `repeat(${block.shape[0].length}, ${trayCellSize}px)`,
-                                        gridTemplateRows: `repeat(${block.shape.length}, ${trayCellSize}px)`,
-                                        gap: `${trayGap}px`,
-                                    }}
-                                >
-                                    {block.shape.map((row, r) =>
-                                        row.map((cell, c) => (
-                                            <div
-                                                key={`${r}-${c}`}
-                                                style={{
-                                                    width: trayCellSize,
-                                                    height: trayCellSize,
-                                                    borderRadius: 4,
-                                                    backgroundColor: cell === 1 ? block.color : 'transparent',
-                                                    boxShadow: cell === 1 ? `inset 0 0 6px rgba(255,255,255,0.35), 0 2px 4px rgba(0,0,0,0.4)` : 'none',
-                                                }}
-                                            />
-                                        ))
-                                    )}
-                                </div>
-                            </motion.div>
-                        );
-                    })}
-                </div>
+            <div className="w-full flex-shrink-0 flex justify-center items-center gap-4 sm:gap-6 px-6 py-4 relative z-20">
+                {blocks.map((block, index) => {
+                    const isCurrentlyDragging = isDragging && dragRef.current.blockIndex === index;
+                    if (block.isUsed) {
+                        return <div key={block.id} className="w-[88px] h-[88px] flex-shrink-0 opacity-0" />;
+                    }
+                    return (
+                        <motion.div
+                            key={block.id}
+                            layout
+                            initial={{ scale: 0, y: 40, opacity: 0 }}
+                            animate={{ scale: isCurrentlyDragging ? 0 : 1, y: 0, opacity: isCurrentlyDragging ? 0 : 1 }}
+                            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                            onPointerDown={(e) => handlePointerDown(e, index)}
+                            className="flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700/60 rounded-2xl shadow-xl cursor-pointer hover:border-slate-500 hover:scale-105 active:scale-95 transition-colors flex-shrink-0"
+                            style={{ width: 88, height: 88, touchAction: 'none' }}
+                        >
+                            <div className="grid" style={{
+                                gridTemplateColumns: `repeat(${block.shape[0].length}, ${trayCellSize}px)`,
+                                gridTemplateRows: `repeat(${block.shape.length}, ${trayCellSize}px)`,
+                                gap: '3px',
+                            }}>
+                                {block.shape.map((row, r) =>
+                                    row.map((cell, c) => (
+                                        <div key={`${r}-${c}`} style={{
+                                            width: trayCellSize, height: trayCellSize,
+                                            borderRadius: 4,
+                                            backgroundColor: cell === 1 ? block.color : 'transparent',
+                                            boxShadow: cell === 1 ? `inset 0 0 6px rgba(255,255,255,0.35), 0 2px 4px rgba(0,0,0,0.4)` : 'none',
+                                        }} />
+                                    ))
+                                )}
+                            </div>
+                        </motion.div>
+                    );
+                })}
             </div>
 
-            {/* Dragging Ghost — pixel-perfect, above pointer */}
-            {dragState.isDragging && activeShape && (
+            {/* Ghost — mutated directly via ghostRef, NOT React state */}
+            {isDragging && activeBlock && (
                 <div
+                    ref={ghostRef}
                     className="fixed z-[200] pointer-events-none"
                     style={{
-                        left: ghostLeft,
-                        top: ghostTop,
-                        filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.7))',
+                        left: dragRef.current.pointerX,
+                        top: dragRef.current.pointerY,
+                        filter: `drop-shadow(0 20px 40px rgba(0,0,0,0.7))`,
+                        transformOrigin: 'top left',
                     }}
                 >
                     <div
                         className="grid"
                         style={{
-                            gridTemplateColumns: `repeat(${activeShape[0].length}, ${cellSize}px)`,
-                            gridTemplateRows: `repeat(${activeShape.length}, ${cellSize}px)`,
+                            gridTemplateColumns: `repeat(${activeBlock.shape[0].length}, ${cellSize}px)`,
+                            gridTemplateRows: `repeat(${activeBlock.shape.length}, ${cellSize}px)`,
                             gap: `${GAP}px`,
-                            transform: 'scale(1.08)',
-                            transformOrigin: 'top left',
                         }}
                     >
-                        {activeShape.map((row, r) =>
+                        {activeBlock.shape.map((row, r) =>
                             row.map((cell, c) => (
-                                <div
-                                    key={`${r}-${c}`}
-                                    style={{
-                                        width: cellSize,
-                                        height: cellSize,
-                                        borderRadius: Math.max(4, cellSize * 0.1),
-                                        backgroundColor: cell === 1 ? blocks[dragState.blockIndex].color : 'transparent',
-                                        boxShadow: cell === 1
-                                            ? `inset 0 0 ${cellSize * 0.2}px rgba(255,255,255,0.5), 0 4px 12px rgba(0,0,0,0.5)`
-                                            : 'none',
-                                    }}
-                                />
+                                <div key={`${r}-${c}`} style={{
+                                    width: cellSize, height: cellSize,
+                                    borderRadius: Math.max(4, cellSize * 0.1),
+                                    backgroundColor: cell === 1 ? activeBlock.color : 'transparent',
+                                    boxShadow: cell === 1
+                                        ? `inset 0 0 ${cellSize * 0.2}px rgba(255,255,255,0.5), 0 4px 12px rgba(0,0,0,0.5)`
+                                        : 'none',
+                                }} />
                             ))
                         )}
                     </div>
