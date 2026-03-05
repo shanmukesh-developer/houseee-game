@@ -82,13 +82,14 @@ export default function BlockBlast() {
     const [nudge, setNudge] = useState(null);
 
     // ── Drag state — index is React state (triggers render once), XY is ref ──
-    const [draggingIndex, setDraggingIndex] = useState(null); // triggers render on pick up/drop
-    const [hoverPos, setHoverPos] = useState(null);           // triggers render when snap cell changes
-    const ptrRef = useRef({ x: 0, y: 0 });                   // pointer XY — NO re-renders
-    const ghostRef = useRef(null);                             // ghost DOM node — moved directly
-    const boardRef = useRef(null);                             // board DOM node
-    const cellSzRef = useRef(48);                              // cached cell size
-    const prevHoverRef = useRef(null);                         // previous hover pos to avoid redundant setHoverPos
+    const [draggingIndex, setDraggingIndex] = useState(null);
+    const [hoverPos, setHoverPos] = useState(null);
+    const ptrRef = useRef({ x: 0, y: 0 });
+    const ghostRef = useRef(null);
+    const boardRef = useRef(null);
+    const cellSzRef = useRef(48);
+    const prevHoverRef = useRef(null);
+    const boardRectCache = useRef(null); // cached on drag start, avoids getBCR every frame
 
     // ── Measure grid ─────────────────────────────────────────
     useEffect(() => {
@@ -252,6 +253,8 @@ export default function BlockBlast() {
         if (blocks[idx]?.isUsed) return;
         e.preventDefault();
         document.body.style.overflow = 'hidden';
+        // Cache board rect NOW so onMove never calls getBoundingClientRect
+        if (boardRef.current) boardRectCache.current = boardRef.current.getBoundingClientRect();
         ptrRef.current = { x: e.clientX, y: e.clientY };
         prevHoverRef.current = null;
         setDraggingIndex(idx);
@@ -270,35 +273,49 @@ export default function BlockBlast() {
             const px = e.clientX, py = e.clientY;
             ptrRef.current = { x: px, y: py };
 
-            // Move ghost directly (no React state — zero re-render cost)
             if (ghostRef.current) {
-                const snapPos = computeSnapPos(px, py, shape);
-                const snapValid = snapPos && isValid(shape, snapPos.row, snapPos.col, board);
+                const rect = boardRectCache.current;
                 const cs = cellSzRef.current;
+                const bw = shape[0].length * cs + (shape[0].length - 1) * GAP;
+                const bh = shape.length * cs + (shape.length - 1) * GAP;
 
-                let gLeft, gTop, snapped;
-                if (snapValid && boardRef.current) {
-                    const rect = boardRef.current.getBoundingClientRect();
-                    gLeft = rect.left + snapPos.col * (cs + GAP);
-                    gTop = rect.top + snapPos.row * (cs + GAP);
-                    snapped = true;
-                } else {
-                    const g = computeGhostPos(px, py, shape);
-                    gLeft = g.left; gTop = g.top;
-                    snapped = false;
+                // Check snap (using cached rect — no layout read)
+                let snapRow = null, snapCol = null, snapped = false;
+                if (rect) {
+                    const relX = (px - bw / 2) - rect.left;
+                    const relY = (py - bh - 30) - rect.top;
+                    const row = Math.round(relY / (cs + GAP));
+                    const col = Math.round(relX / (cs + GAP));
+                    if (isValid(shape, row, col, board)) {
+                        snapRow = row; snapCol = col; snapped = true;
+                    }
                 }
 
-                ghostRef.current.style.left = `${gLeft}px`;
-                ghostRef.current.style.top = `${gTop}px`;
-                ghostRef.current.style.transform = snapped ? 'scale(1)' : 'scale(1.08)';
-                ghostRef.current.style.opacity = snapped ? '0.85' : '0.95';
-                ghostRef.current.style.filter = snapped
-                    ? `drop-shadow(0 0 14px ${block.color}AA)`
-                    : 'drop-shadow(0 16px 32px rgba(0,0,0,0.7))';
+                // Compute final translate target
+                let tx, ty;
+                if (snapped && rect) {
+                    tx = rect.left + snapCol * (cs + GAP);
+                    ty = rect.top + snapRow * (cs + GAP);
+                } else {
+                    tx = px - bw / 2;
+                    ty = py - bh - 30;
+                }
 
-                // Only trigger React state update if snap cell changed (avoids re-render flood)
+                // Use translate3d for GPU-composited smooth movement
+                // Free movement: no transition (follows finger instantly)
+                // Snap: short ease-out so it "clicks" into cell
+                ghostRef.current.style.transition = snapped
+                    ? 'transform 0.06s ease-out, filter 0.08s'
+                    : 'filter 0.08s';
+                ghostRef.current.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${snapped ? 1 : 1.08})`;
+                ghostRef.current.style.opacity = snapped ? '0.84' : '0.96';
+                ghostRef.current.style.filter = snapped
+                    ? `drop-shadow(0 0 12px ${block.color}BB)`
+                    : 'drop-shadow(0 12px 28px rgba(0,0,0,0.75))';
+
+                // Only update React state when cell changes (grid highlight)
                 const prev = prevHoverRef.current;
-                const newSnap = snapValid ? snapPos : null;
+                const newSnap = snapped ? { row: snapRow, col: snapCol } : null;
                 const changed = (!prev && newSnap) || (prev && !newSnap)
                     || (prev && newSnap && (prev.row !== newSnap.row || prev.col !== newSnap.col));
                 if (changed) {
@@ -508,19 +525,19 @@ export default function BlockBlast() {
                 })}
             </div>
 
-            {/* Ghost — always in DOM when dragging, positioned via ref (never re-renders on move) */}
+            {/* Ghost — positioned at (0,0), moved entirely via translate3d for GPU-composited smoothness */}
             {draggingBlock && (
                 <div
                     ref={ghostRef}
                     className="fixed pointer-events-none z-[500]"
                     style={{
-                        left: initGhostPos.left,
-                        top: initGhostPos.top,
-                        transform: 'scale(1.08)',
+                        left: 0,
+                        top: 0,
+                        transform: `translate3d(${initGhostPos.left}px, ${initGhostPos.top}px, 0) scale(1.08)`,
                         transformOrigin: 'top left',
                         opacity: 0.9,
                         filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.7))',
-                        willChange: 'transform, left, top',
+                        willChange: 'transform',
                     }}
                 >
                     <div className="grid" style={{ gridTemplateColumns: `repeat(${draggingBlock.shape[0].length}, ${cs}px)`, gridTemplateRows: `repeat(${draggingBlock.shape.length}, ${cs}px)`, gap: `${GAP}px` }}>
