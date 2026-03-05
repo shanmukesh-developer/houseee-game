@@ -42,7 +42,7 @@ export default function BlockBlast() {
     const [board, setBoard] = useState(createEmptyBoard());
     const [score, setScore] = useState(0);
     const [blocks, setBlocks] = useState([]);
-    const [gameOver, setGameOver] = useState(false);
+    const [nudgeMessage, setNudgeMessage] = useState(null); // Tip nudge instead of game over
     const [shake, setShake] = useState(false);
     const [comboMessage, setComboMessage] = useState(null);
     const [clearingCells, setClearingCells] = useState([]);
@@ -75,21 +75,7 @@ export default function BlockBlast() {
         return () => window.removeEventListener('resize', measure);
     }, []);
 
-    // ── Block generation ─────────────────────────────────────
-    const generateBlocks = useCallback(() => {
-        const newBlocks = [];
-        for (let i = 0; i < 3; i++) {
-            const s = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-            newBlocks.push({ ...s, id: Math.random().toString(36).slice(2), isUsed: false });
-        }
-        setBlocks(newBlocks);
-    }, []);
-
-    useEffect(() => {
-        if (blocks.length === 0 && !gameOver) generateBlocks();
-    }, [blocks, gameOver, generateBlocks]);
-
-    // ── Placement helpers ─────────────────────────────────────
+    // ── Placement helpers (defined before generateBlocks uses them) ─────
     const isValidPlacement = useCallback((shape, startRow, startCol, boardState = board) => {
         for (let r = 0; r < shape.length; r++) {
             for (let c = 0; c < shape[r].length; c++) {
@@ -110,17 +96,48 @@ export default function BlockBlast() {
         return false;
     }, [isValidPlacement, board]);
 
-    // ── Game over detection ───────────────────────────────────
+    // ── Anti-frustration block generation: always pick shapes that fit ──
+    const generateBlocks = useCallback((boardState = board) => {
+        const newBlocks = [];
+        for (let slot = 0; slot < 3; slot++) {
+            // Shuffle shapes and pick the first one that fits
+            const shuffled = [...SHAPES].sort(() => Math.random() - 0.5);
+            let picked = shuffled[0]; // fallback
+            // try to find a shape that actually fits on the current board
+            for (const candidate of shuffled) {
+                if (canPlaceBlockAnywhere(candidate.shape, boardState)) {
+                    picked = candidate;
+                    break;
+                }
+            }
+            newBlocks.push({ ...picked, id: Math.random().toString(36).slice(2), isUsed: false });
+        }
+        setBlocks(newBlocks);
+    }, [board, canPlaceBlockAnywhere]);
+
     useEffect(() => {
-        if (!blocks.length || gameOver) return;
+        if (blocks.length === 0) generateBlocks();
+    }, [blocks, generateBlocks]);
+
+    // ── Stuck detection: show nudge, then regenerate smaller pieces ──
+    useEffect(() => {
+        if (!blocks.length) return;
         const available = blocks.filter(b => !b.isUsed);
         if (!available.length) {
             generateBlocks();
             return;
         }
         const canPlace = available.some(b => canPlaceBlockAnywhere(b.shape));
-        if (!canPlace) setGameOver(true);
-    }, [board, blocks, gameOver, canPlaceBlockAnywhere, generateBlocks]);
+        if (!canPlace) {
+            // Board is too full — nudge the player and give them tiny pieces
+            setNudgeMessage('💡 Board is full! Clear some lines!');
+            setTimeout(() => setNudgeMessage(null), 2500);
+            // Give fallback: single-cell or 1x2 pieces that will definitely fit somewhere
+            const tinyShapes = SHAPES.filter(s => s.shape.flat().filter(v => v === 1).length <= 2);
+            const fallback = tinyShapes.sort(() => Math.random() - 0.5).slice(0, 3);
+            setBlocks(fallback.map(s => ({ ...s, id: Math.random().toString(36).slice(2), isUsed: false })));
+        }
+    }, [board, blocks, canPlaceBlockAnywhere, generateBlocks]);
 
     // ── Place block on board ──────────────────────────────────
     const placeBlock = useCallback((block, startRow, startCol, blockIndex) => {
@@ -258,7 +275,7 @@ export default function BlockBlast() {
         }
     }
 
-    const restartGame = () => { setBoard(createEmptyBoard()); setScore(0); setGameOver(false); setBlocks([]); };
+    const restartGame = () => { setBoard(createEmptyBoard()); setScore(0); setBlocks([]); setNudgeMessage(null); };
     const leaveRoom = () => { setRoomCode(null); setGameType(null); navigate('/'); };
 
     // ── Floating ghost block position ─────────────────────────
@@ -267,6 +284,8 @@ export default function BlockBlast() {
     const ghostTop = activeShape ? dragState.pointerY - (activeShape.length * cellSize + (activeShape.length - 1) * GAP) - 28 : 0;
 
     if (!user) return null;
+
+    // Nudge tip toast (non-blocking)
 
     // Tray block cell size: smaller than grid, proportional
     const trayCellSize = Math.max(20, Math.floor(cellSize * 0.6));
@@ -308,6 +327,20 @@ export default function BlockBlast() {
                     className="relative bg-slate-900/80 rounded-2xl border border-slate-800/80 shadow-[0_0_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm"
                     style={{ padding: GAP * 2 }}
                 >
+                    {/* Nudge toast */}
+                    <AnimatePresence>
+                        {nudgeMessage && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="absolute top-3 left-1/2 -translate-x-1/2 z-50 bg-amber-500/90 text-black font-black text-sm px-4 py-2 rounded-xl shadow-2xl backdrop-blur-sm whitespace-nowrap pointer-events-none border border-amber-300"
+                            >
+                                {nudgeMessage}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
                     {/* Combo message */}
                     <AnimatePresence>
                         {comboMessage && (
@@ -393,27 +426,7 @@ export default function BlockBlast() {
                         )}
                     </div>
 
-                    {/* Game Over overlay */}
-                    {gameOver && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 border border-slate-700"
-                        >
-                            <div className="text-5xl font-black text-red-500 mb-3 drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] tracking-widest text-center leading-tight">
-                                OUT OF<br />MOVES
-                            </div>
-                            <div className="text-2xl text-white mb-8 bg-black/50 px-6 py-2 rounded-xl border border-white/10">
-                                Score: <strong className="text-yellow-400">{score.toLocaleString()}</strong>
-                            </div>
-                            <button
-                                onClick={restartGame}
-                                className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl font-bold uppercase tracking-widest shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all transform hover:scale-105 active:scale-95 border-2 border-white/20"
-                            >
-                                Play Again
-                            </button>
-                        </motion.div>
-                    )}
+                    {/* No game over — game is endless! */}
                 </div>
             </motion.div>
 
