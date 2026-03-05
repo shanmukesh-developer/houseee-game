@@ -13,6 +13,11 @@ import SnakesLadders from './pages/SnakesLadders';
 import Ludo from './pages/Ludo';
 import BlockBlast from './pages/BlockBlast';
 import TerritoryWar from './pages/TerritoryWar';
+import AgarGame from './pages/AgarGame';
+import BattleRoyale from './pages/BattleRoyale';
+import BomberGrid from './pages/BomberGrid';
+import CoreDefense from './pages/CoreDefense';
+import CarArena from './pages/CarArena';
 import { AppContext, socket } from './context/AppContext';
 import { playSound } from './utils/audio';
 
@@ -125,6 +130,11 @@ function App() {
             <Route path="/ludo" element={<Ludo />} />
             <Route path="/blockblast" element={<BlockBlast />} />
             <Route path="/territorywar" element={<TerritoryWar />} />
+            <Route path="/agargame" element={<AgarGame />} />
+            <Route path="/battleroyale" element={<BattleRoyale />} />
+            <Route path="/bombergrid" element={<BomberGrid />} />
+            <Route path="/coredefense" element={<CoreDefense />} />
+            <Route path="/cararena" element={<CarArena />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/ledger" element={<Ledger />} />

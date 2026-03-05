@@ -21,6 +21,11 @@ export default function Home() {
             if (gameType === 'ludo') navigate('/ludo');
             if (gameType === 'blockblast') navigate('/blockblast');
             if (gameType === 'territorywar') navigate('/territorywar');
+            if (gameType === 'agargame') navigate('/agargame');
+            if (gameType === 'battleroyale') navigate('/battleroyale');
+            if (gameType === 'bombergrid') navigate('/bombergrid');
+            if (gameType === 'coredefense') navigate('/coredefense');
+            if (gameType === 'cararena') navigate('/cararena');
         }
     }, [roomCode, gameType, navigate]);
 
@@ -175,6 +180,45 @@ export default function Home() {
                         </div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-center flex items-center justify-center">Territory <br /> War</span>
                     </button>
+                    <button
+                        onClick={() => setSelectedGame('agargame')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'agargame' ? 'bg-pink-500/20 border-pink-500 text-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <div className="relative w-6 h-6 mb-1">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-current"></div>
+                            <div className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-current"></div>
+                            <div className="absolute bottom-1 left-0 w-1 h-1 rounded-full bg-current"></div>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center">Agar</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('battleroyale')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'battleroyale' ? 'bg-orange-500/20 border-orange-500 text-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <svg className="w-6 h-6 mb-1 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center flex items-center justify-center">Battle<br />Royale</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('bombergrid')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'bombergrid' ? 'bg-red-500/20 border-red-500 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <svg className="w-6 h-6 mb-1 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="14" r="4" /><path d="M10.5 11.5L14 8" /><circle cx="15" cy="7" r="1" fill="currentColor" /><path d="M12 4h4v4" /></svg>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center">Bomber<br />Grid</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('coredefense')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'coredefense' ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <ShieldCheck size={24} className="mb-1" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center flex items-center justify-center">Core<br />Defense</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('cararena')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'cararena' ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <svg className="w-6 h-6 mb-1 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center">Car<br />Arena</span>
+                    </button>
                 </div>
 
                 <div className="space-y-4">
@@ -183,9 +227,9 @@ export default function Home() {
                         disabled={!user && !nameInput.trim()}
                         className={`btn-neon w-full flex items-center justify-center gap-2 text-lg py-4 ${(!user && !nameInput) ? 'opacity-50' : ''}`}
                         style={{
-                            backgroundColor: selectedGame === 'tictactoe' ? 'rgba(59, 130, 246, 0.2)' : selectedGame === 'sos' ? 'rgba(239, 68, 68, 0.2)' : selectedGame === 'snakesladders' ? 'rgba(34, 197, 94, 0.2)' : selectedGame === 'ludo' ? 'rgba(168, 85, 247, 0.2)' : selectedGame === 'blockblast' ? 'rgba(249, 115, 22, 0.2)' : selectedGame === 'territorywar' ? 'rgba(6, 182, 212, 0.2)' : undefined,
-                            borderColor: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : selectedGame === 'blockblast' ? '#F97316' : selectedGame === 'territorywar' ? '#06B6D4' : undefined,
-                            color: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : selectedGame === 'blockblast' ? '#F97316' : selectedGame === 'territorywar' ? '#06B6D4' : undefined,
+                            backgroundColor: selectedGame === 'tictactoe' ? 'rgba(59, 130, 246, 0.2)' : selectedGame === 'sos' ? 'rgba(239, 68, 68, 0.2)' : selectedGame === 'snakesladders' ? 'rgba(34, 197, 94, 0.2)' : selectedGame === 'ludo' ? 'rgba(168, 85, 247, 0.2)' : selectedGame === 'blockblast' ? 'rgba(249, 115, 22, 0.2)' : selectedGame === 'territorywar' ? 'rgba(6, 182, 212, 0.2)' : selectedGame === 'agargame' ? 'rgba(236, 72, 153, 0.2)' : selectedGame === 'battleroyale' ? 'rgba(249, 115, 22, 0.2)' : selectedGame === 'bombergrid' ? 'rgba(239, 68, 68, 0.2)' : selectedGame === 'coredefense' ? 'rgba(99, 102, 241, 0.2)' : selectedGame === 'cararena' ? 'rgba(234, 179, 8, 0.2)' : undefined,
+                            borderColor: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : selectedGame === 'blockblast' ? '#F97316' : selectedGame === 'territorywar' ? '#06B6D4' : selectedGame === 'agargame' ? '#EC4899' : selectedGame === 'battleroyale' ? '#F97316' : selectedGame === 'bombergrid' ? '#EF4444' : selectedGame === 'coredefense' ? '#6366F1' : selectedGame === 'cararena' ? '#EAB308' : undefined,
+                            color: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : selectedGame === 'blockblast' ? '#F97316' : selectedGame === 'territorywar' ? '#06B6D4' : selectedGame === 'agargame' ? '#EC4899' : selectedGame === 'battleroyale' ? '#F97316' : selectedGame === 'bombergrid' ? '#EF4444' : selectedGame === 'coredefense' ? '#818CF8' : selectedGame === 'cararena' ? '#FACC15' : undefined,
                         }}
                     >
                         <Crown fill="currentColor" /> Host {selectedGame.toUpperCase()} Game

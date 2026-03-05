@@ -162,6 +162,25 @@ io.on('connection', (socket) => {
       winners: { jaldi5: null, rowTop: null, rowMid: null, rowBot: null, fullHouse: null, fourCorners: null, pyramid: null }
     };
 
+    // Helper: Generates 15x15 Bomber Grid
+    const generateBomberGrid = () => {
+      const grid = Array(15).fill(null).map(() => Array(15).fill(0));
+      for (let r = 0; r < 15; r++) {
+        for (let c = 0; c < 15; c++) {
+          if (r % 2 === 1 && c % 2 === 1) {
+            grid[r][c] = 1; // Indestructible Wall
+          } else {
+            // Safe spawn corners
+            const isSafe = (r < 2 && c < 2) || (r < 2 && c > 12) || (r > 12 && c < 2) || (r > 12 && c > 12);
+            if (!isSafe && Math.random() < 0.6) {
+              grid[r][c] = 2; // Destructible Wall
+            }
+          }
+        }
+      }
+      return grid;
+    };
+
     // Initialize specific game payloads
     if (gameType === 'tictactoe') {
       defaultRoomData.board = Array(9).fill(null);
@@ -195,9 +214,73 @@ io.on('connection', (socket) => {
       defaultRoomData.positions = { [userId]: { r: 0, c: 0 } }; // Host spawns Top-Left
       defaultRoomData.colors = { [userId]: 'red' };
       defaultRoomData.scores = { [userId]: 0 };
-      defaultRoomData.timeLeft = 60;
-      defaultRoomData.status = 'playing';
       defaultRoomData.winner = null;
+      defaultRoomData.history = [];
+    } else if (gameType === 'agargame') {
+      defaultRoomData.playersState = {
+        [userId]: { x: 50, y: 50, radius: 2, score: 0, isAlive: true }
+      };
+      defaultRoomData.colors = { [userId]: 'red' };
+      defaultRoomData.food = Array.from({ length: 50 }).map((_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        color: ['#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#A855F7', '#F97316'][Math.floor(Math.random() * 6)]
+      }));
+      defaultRoomData.timeLeft = 90;
+      defaultRoomData.status = 'playing';
+      defaultRoomData.history = [];
+    } else if (gameType === 'battleroyale') {
+      defaultRoomData.playersState = {
+        [userId]: { x: 50, y: 50, hp: 100, shield: false, speed: 1, weapon: null, isAlive: true, angle: 0, kills: 0 }
+      };
+      defaultRoomData.colors = { [userId]: 'red' };
+      defaultRoomData.loot = Array.from({ length: 30 }).map((_, i) => ({
+        id: i, x: Math.random() * 90 + 5, y: Math.random() * 90 + 5,
+        type: ['health', 'shield', 'speed', 'gun', 'health', 'gun'][Math.floor(Math.random() * 6)]
+      }));
+      defaultRoomData.bullets = [];
+      defaultRoomData.zone = { cx: 50, cy: 50, radius: 100, shrinkRate: 0.05 };
+      defaultRoomData.timeLeft = 90;
+      defaultRoomData.status = 'playing';
+      defaultRoomData.history = [];
+    } else if (gameType === 'bombergrid') {
+      defaultRoomData.grid = generateBomberGrid();
+      defaultRoomData.playersState = {
+        [userId]: { x: 0, y: 0, isAlive: true, maxBombs: 1, currentBombs: 0, blastRadius: 1, speed: 1, kills: 0 }
+      };
+      defaultRoomData.colors = { [userId]: 'red' };
+      defaultRoomData.bombs = [];
+      defaultRoomData.explosions = [];
+      defaultRoomData.powerups = [];
+      defaultRoomData.timeLeft = 120;
+      defaultRoomData.status = 'playing';
+      defaultRoomData.history = [];
+    } else if (gameType === 'coredefense') {
+      defaultRoomData.coreHp = 1000;
+      defaultRoomData.playersState = {
+        [userId]: { x: 50, y: 50, isAlive: true, gold: 0, kills: 0 }
+      };
+      defaultRoomData.colors = { [userId]: 'cyan' };
+      defaultRoomData.enemies = [];
+      defaultRoomData.towers = [];
+      defaultRoomData.bullets = [];
+      defaultRoomData.lasers = [];
+      defaultRoomData.timeLeft = 180; // 3 minutes
+      defaultRoomData.status = 'playing';
+      defaultRoomData.history = [];
+    } else if (gameType === 'cararena') {
+      defaultRoomData.playersState = {
+        [userId]: { x: 50, y: 50, angle: 0, velocity: 0, steer: 0, isAlive: true, coins: 0 }
+      };
+      defaultRoomData.colors = { [userId]: 'yellow' };
+      defaultRoomData.coins = Array.from({ length: 20 }).map((_, i) => ({
+        id: i,
+        x: Math.random() * 90 + 5,
+        y: Math.random() * 90 + 5
+      }));
+      defaultRoomData.timeLeft = 90;
+      defaultRoomData.status = 'playing';
       defaultRoomData.history = [];
     }
 
@@ -247,6 +330,54 @@ io.on('connection', (socket) => {
         ];
         room.positions[userId] = spawns[room.players.length - 1] || { r: 7, c: 7 };
         room.scores[userId] = 0;
+      } else if (room.gameType === 'agargame') {
+        const availableColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'pink'];
+        const usedColors = Object.values(room.colors || {});
+        room.colors[userId] = availableColors.find(c => !usedColors.includes(c)) || 'gray';
+
+        // Spawn randomly
+        room.playersState[userId] = {
+          x: Math.random() * 90 + 5,
+          y: Math.random() * 90 + 5,
+          radius: 2,
+          score: 0,
+          isAlive: true
+        };
+      } else if (room.gameType === 'battleroyale') {
+        const availableColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'pink'];
+        const usedColors = Object.values(room.colors || {});
+        room.colors[userId] = availableColors.find(c => !usedColors.includes(c)) || 'gray';
+        room.playersState[userId] = {
+          x: Math.random() * 90 + 5, y: Math.random() * 90 + 5, hp: 100, shield: false, speed: 1, weapon: null, isAlive: true, angle: 0, kills: 0
+        };
+      } else if (room.gameType === 'bombergrid') {
+        const availableColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan'];
+        const usedColors = Object.values(room.colors || {});
+        room.colors[userId] = availableColors.find(c => !usedColors.includes(c)) || 'gray';
+
+        const spawns = [{ x: 0, y: 0 }, { x: 14, y: 14 }, { x: 14, y: 0 }, { x: 0, y: 14 }];
+        const pos = spawns[room.players.length - 1] || { x: 7, y: 7 };
+        room.playersState[userId] = { ...pos, isAlive: true, maxBombs: 1, currentBombs: 0, blastRadius: 1, speed: 1, kills: 0 };
+      } else if (room.gameType === 'coredefense') {
+        const availableColors = ['cyan', 'red', 'yellow', 'purple', 'green', 'orange', 'pink', 'blue'];
+        const usedColors = Object.values(room.colors || {});
+        room.colors[userId] = availableColors.find(c => !usedColors.includes(c)) || 'gray';
+
+        // Form a tight circle around the core
+        const angle = (room.players.length * Math.PI) / 2;
+        room.playersState[userId] = {
+          x: 50 + Math.cos(angle) * 5,
+          y: 50 + Math.sin(angle) * 5,
+          isAlive: true, gold: 0, kills: 0
+        };
+      } else if (room.gameType === 'cararena') {
+        const availableColors = ['yellow', 'red', 'blue', 'green', 'purple', 'orange', 'pink', 'cyan'];
+        const usedColors = Object.values(room.colors || {});
+        room.colors[userId] = availableColors.find(c => !usedColors.includes(c)) || 'gray';
+
+        const spawns = [{ x: 10, y: 10 }, { x: 90, y: 90 }, { x: 90, y: 10 }, { x: 10, y: 90 }];
+        const pos = spawns[room.players.length - 1] || { x: 50, y: 50 };
+        room.playersState[userId] = { ...pos, angle: 0, velocity: 0, steer: 0, isAlive: true, coins: 0 };
       }
     }
 
@@ -343,6 +474,102 @@ io.on('connection', (socket) => {
           { r: 7, c: 7 }, { r: 0, c: 7 }, { r: 14, c: 7 }, { r: 7, c: 0 }
         ];
         room.positions[p.id] = spawns[idx] || { r: 7, c: 7 };
+      });
+    } else if (room.gameType === 'agargame') {
+      room.timeLeft = 90;
+      room.status = 'playing';
+      room.history = [];
+      room.winner = null;
+      room.food = Array.from({ length: 50 }).map((_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        color: ['#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#A855F7', '#F97316'][Math.floor(Math.random() * 6)]
+      }));
+      room.players.forEach(p => {
+        room.playersState[p.id] = {
+          x: Math.random() * 90 + 5,
+          y: Math.random() * 90 + 5,
+          radius: 2,
+          score: 0,
+          isAlive: true
+        };
+      });
+    } else if (room.gameType === 'battleroyale') {
+      room.timeLeft = 90;
+      room.status = 'playing';
+      room.history = [];
+      room.winner = null;
+      room.bullets = [];
+      room.zone = { cx: 50, cy: 50, radius: 100, shrinkRate: 0.05 };
+      room.loot = Array.from({ length: 30 }).map((_, i) => ({
+        id: i, x: Math.random() * 90 + 5, y: Math.random() * 90 + 5,
+        type: ['health', 'shield', 'speed', 'gun', 'health', 'gun'][Math.floor(Math.random() * 6)]
+      }));
+      room.players.forEach(p => {
+        room.playersState[p.id] = {
+          x: Math.random() * 90 + 5, y: Math.random() * 90 + 5, hp: 100, shield: false, speed: 1, weapon: null, isAlive: true, angle: 0, kills: 0
+        };
+      });
+    } else if (room.gameType === 'bombergrid') {
+      const generateGrid = () => {
+        const grid = Array(15).fill(null).map(() => Array(15).fill(0));
+        for (let r = 0; r < 15; r++) {
+          for (let c = 0; c < 15; c++) {
+            if (r % 2 === 1 && c % 2 === 1) grid[r][c] = 1;
+            else {
+              const isSafe = (r < 2 && c < 2) || (r < 2 && c > 12) || (r > 12 && c < 2) || (r > 12 && c > 12);
+              if (!isSafe && Math.random() < 0.6) grid[r][c] = 2;
+            }
+          }
+        }
+        return grid;
+      };
+      room.grid = generateGrid();
+      room.bombs = [];
+      room.explosions = [];
+      room.powerups = [];
+      room.timeLeft = 120;
+      room.status = 'playing';
+      room.history = [];
+      room.winner = null;
+      room.players.forEach((p, idx) => {
+        const spawns = [{ x: 0, y: 0 }, { x: 14, y: 14 }, { x: 14, y: 0 }, { x: 0, y: 14 }];
+        const pos = spawns[idx] || { x: 7, y: 7 };
+        room.playersState[p.id] = { ...pos, isAlive: true, maxBombs: 1, currentBombs: 0, blastRadius: 1, speed: 1, kills: 0 };
+      });
+    } else if (room.gameType === 'coredefense') {
+      room.coreHp = 1000;
+      room.enemies = [];
+      room.towers = [];
+      room.bullets = [];
+      room.lasers = [];
+      room.timeLeft = 180;
+      room.status = 'playing';
+      room.history = [];
+      room.winner = null;
+      room.players.forEach((p, idx) => {
+        const angle = (idx * Math.PI) / 2;
+        room.playersState[p.id] = {
+          x: 50 + Math.cos(angle) * 5,
+          y: 50 + Math.sin(angle) * 5,
+          isAlive: true, gold: 0, kills: 0
+        };
+      });
+    } else if (room.gameType === 'cararena') {
+      room.timeLeft = 90;
+      room.status = 'playing';
+      room.history = [];
+      room.winner = null;
+      room.coins = Array.from({ length: 20 }).map((_, i) => ({
+        id: i,
+        x: Math.random() * 90 + 5,
+        y: Math.random() * 90 + 5
+      }));
+      room.players.forEach((p, idx) => {
+        const spawns = [{ x: 10, y: 10 }, { x: 90, y: 90 }, { x: 90, y: 10 }, { x: 10, y: 90 }];
+        const pos = spawns[idx] || { x: 50, y: 50 };
+        room.playersState[p.id] = { ...pos, angle: 0, velocity: 0, steer: 0, isAlive: true, coins: 0 };
       });
     } else {
       room.drawnNumbers = [];
@@ -553,6 +780,547 @@ io.on('connection', (socket) => {
         }
         broadcastRoomState(roomCode);
       }, 1000);
+    } else if (room.gameType === 'agargame') {
+      if (room.timerInterval) clearInterval(room.timerInterval);
+      room.timeLeft = 90;
+
+      // High frequency game loop (10fps for server reconciliation/state sync)
+      room.timerInterval = setInterval(() => {
+        if (!DB.rooms[roomCode] || DB.rooms[roomCode].status !== 'playing') {
+          clearInterval(room.timerInterval);
+          return;
+        }
+
+        // Decrement time every 10 ticks (1 second)
+        room.tickInfo = (room.tickInfo || 0) + 1;
+        if (room.tickInfo % 10 === 0) room.timeLeft -= 1;
+
+        if (room.timeLeft <= 0) {
+          // Game Over
+          room.status = 'finished';
+          clearInterval(room.timerInterval);
+
+          // Determine Winner
+          let maxScore = -1;
+          let winner = null;
+          for (const [pId, pState] of Object.entries(room.playersState)) {
+            if (pState.score > maxScore) {
+              maxScore = pState.score;
+              winner = pId;
+            }
+          }
+          room.winner = winner;
+          if (winner && DB.users[winner]) {
+            io.to(roomCode).emit('winnerDeclared', { winnerName: DB.users[winner].name, claimType: 'Agar Growth Win', prize: 0 });
+          }
+        }
+
+        // Broadcast full state (in a real production app we'd send deltas, but for 10 players this is fine)
+        broadcastRoomState(roomCode);
+
+      }, 100); // 100ms = 10 updates a second
+    } else if (room.gameType === 'battleroyale') {
+      if (room.timerInterval) clearInterval(room.timerInterval);
+      room.timeLeft = 90;
+
+      room.timerInterval = setInterval(() => {
+        if (!DB.rooms[roomCode] || DB.rooms[roomCode].status !== 'playing') {
+          clearInterval(room.timerInterval);
+          return;
+        }
+
+        room.tickInfo = (room.tickInfo || 0) + 1;
+        if (room.tickInfo % 20 === 0) room.timeLeft -= 1; // 50ms tick
+
+        // Shrink Zone
+        room.zone.radius = Math.max(0, room.zone.radius - room.zone.shrinkRate);
+
+        // Update Bullets
+        for (let i = room.bullets.length - 1; i >= 0; i--) {
+          const b = room.bullets[i];
+          b.x += b.vx;
+          b.y += b.vy;
+
+          if (b.x < 0 || b.x > 100 || b.y < 0 || b.y > 100) {
+            room.bullets.splice(i, 1);
+            continue;
+          }
+
+          let hit = false;
+          for (const [pId, pState] of Object.entries(room.playersState)) {
+            if (pId !== b.ownerId && pState.isAlive) {
+              const dx = pState.x - b.x;
+              const dy = pState.y - b.y;
+              if (dx * dx + dy * dy < 4) { // hit radius squared
+                hit = true;
+                if (pState.shield) {
+                  pState.shield = false;
+                } else {
+                  pState.hp -= 25;
+                }
+                if (pState.hp <= 0) {
+                  pState.hp = 0;
+                  pState.isAlive = false;
+                  room.history.push({ type: 'kill', killer: b.ownerId, victim: pId, id: Date.now() + Math.random() });
+                  if (room.playersState[b.ownerId]) room.playersState[b.ownerId].kills++;
+                }
+                break;
+              }
+            }
+          }
+          if (hit) room.bullets.splice(i, 1);
+        }
+
+        let aliveCount = 0;
+        let lastAlive = null;
+
+        for (const [pId, pState] of Object.entries(room.playersState)) {
+          if (pState.isAlive) {
+            aliveCount++;
+            lastAlive = pId;
+
+            // Zone damage
+            if (room.tickInfo % 20 === 0) { // every sec
+              const dx = pState.x - room.zone.cx;
+              const dy = pState.y - room.zone.cy;
+              if (Math.sqrt(dx * dx + dy * dy) > room.zone.radius) {
+                pState.hp -= 10;
+                if (pState.hp <= 0) {
+                  pState.hp = 0;
+                  pState.isAlive = false;
+                  room.history.push({ type: 'zone_death', victim: pId, id: Date.now() + Math.random() });
+                }
+              }
+            }
+          }
+        }
+
+        if ((aliveCount <= 1 && DB.rooms[roomCode].players.length > 1) || room.timeLeft <= 0) {
+          room.status = 'finished';
+          clearInterval(room.timerInterval);
+          room.winner = lastAlive;
+          if (lastAlive && DB.users[lastAlive]) {
+            io.to(roomCode).emit('winnerDeclared', { winnerName: DB.users[lastAlive].name, claimType: 'Battle Royale Victory', prize: 0 });
+          }
+        }
+
+        broadcastRoomState(roomCode);
+      }, 50); // 50ms tick
+    } else if (room.gameType === 'bombergrid') {
+      if (room.timerInterval) clearInterval(room.timerInterval);
+      room.timeLeft = 120;
+
+      room.timerInterval = setInterval(() => {
+        if (!DB.rooms[roomCode] || DB.rooms[roomCode].status !== 'playing') {
+          clearInterval(room.timerInterval);
+          return;
+        }
+
+        room.tickInfo = (room.tickInfo || 0) + 1;
+        if (room.tickInfo % 10 === 0) room.timeLeft -= 1; // 100ms ticks = 10/s
+
+        const now = Date.now();
+
+        // Clear old explosions
+        room.explosions = room.explosions.filter(ex => now < ex.expires);
+
+        // Explode Bombs
+        for (let i = room.bombs.length - 1; i >= 0; i--) {
+          const b = room.bombs[i];
+          if (now >= b.explodeTime) {
+            room.bombs.splice(i, 1);
+            if (room.playersState[b.ownerId]) {
+              room.playersState[b.ownerId].currentBombs = Math.max(0, room.playersState[b.ownerId].currentBombs - 1);
+            }
+
+            // Calculate Blast Raycasts
+            const blastArea = [{ x: b.x, y: b.y }];
+            const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+            for (const [dx, dy] of dirs) {
+              for (let step = 1; step <= b.radius; step++) {
+                const tx = b.x + dx * step;
+                const ty = b.y + dy * step;
+
+                if (tx < 0 || tx > 14 || ty < 0 || ty > 14) break;
+
+                const cell = room.grid[ty][tx];
+                if (cell === 1) break; // Indestructible
+
+                blastArea.push({ x: tx, y: ty });
+
+                if (cell === 2) { // Destructible
+                  room.grid[ty][tx] = 0;
+                  // 40% chance to drop powerup
+                  if (Math.random() < 0.4) {
+                    room.powerups.push({
+                      id: Date.now() + Math.random(),
+                      x: tx, y: ty,
+                      type: ['bomb', 'fire', 'speed'][Math.floor(Math.random() * 3)]
+                    });
+                  }
+                  break; // Stops blast
+                }
+              }
+            }
+
+            // Add explosion visuals
+            for (const pt of blastArea) {
+              room.explosions.push({ x: pt.x, y: pt.y, expires: now + 500, id: Math.random() });
+
+              // Destroy any powerups caught in blast
+              room.powerups = room.powerups.filter(pu => pu.x !== pt.x || pu.y !== pt.y);
+
+              // Chain react other bombs
+              for (let j = 0; j < room.bombs.length; j++) {
+                if (room.bombs[j].x === pt.x && room.bombs[j].y === pt.y) {
+                  room.bombs[j].explodeTime = now; // trigger immediately next loop
+                }
+              }
+
+              // Kill Players
+              for (const [pId, pState] of Object.entries(room.playersState)) {
+                if (pState.isAlive && Math.round(pState.x) === pt.x && Math.round(pState.y) === pt.y) {
+                  pState.isAlive = false;
+                  room.history.push({ type: 'explosion_death', victim: pId, killer: b.ownerId, id: Date.now() + Math.random() });
+                  if (pId !== b.ownerId && room.playersState[b.ownerId]) room.playersState[b.ownerId].kills++;
+                }
+              }
+            }
+          }
+        }
+
+        // End game check
+        let aliveCount = 0;
+        let lastAlive = null;
+        for (const [pId, pState] of Object.entries(room.playersState)) {
+          if (pState.isAlive) { aliveCount++; lastAlive = pId; }
+        }
+
+        if ((aliveCount <= 1 && DB.rooms[roomCode].players.length > 1) || room.timeLeft <= 0) {
+          room.status = 'finished';
+          clearInterval(room.timerInterval);
+          room.winner = lastAlive;
+          if (lastAlive && DB.users[lastAlive]) {
+            io.to(roomCode).emit('winnerDeclared', { winnerName: DB.users[lastAlive].name, claimType: 'Bomber Grid Win', prize: 0 });
+          }
+        }
+
+        broadcastRoomState(roomCode);
+      }, 100);
+    } else if (room.gameType === 'coredefense') {
+      if (room.timerInterval) clearInterval(room.timerInterval);
+      room.timeLeft = 180; // 3 minutes
+
+      room.timerInterval = setInterval(() => {
+        if (!DB.rooms[roomCode] || DB.rooms[roomCode].status !== 'playing') {
+          clearInterval(room.timerInterval);
+          return;
+        }
+
+        room.tickInfo = (room.tickInfo || 0) + 1;
+        if (room.tickInfo % 20 === 0) room.timeLeft -= 1; // 50ms ticks = 20/s
+
+        const now = Date.now();
+        room.lasers = []; // Reset visual lasers every tick
+
+        // Spawn Enemies
+        // Spawn rate increases as time goes down. Starts at 1 enemy per 2 secs, ends at 1 per 0.5 secs
+        const spawnFrames = Math.max(10, Math.floor(40 * (room.timeLeft / 180)));
+        if (room.tickInfo % spawnFrames === 0) {
+          const corners = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 0, y: 100 }, { x: 100, y: 100 }];
+          const spawn = corners[Math.floor(Math.random() * corners.length)];
+          const hpScale = 50 + ((180 - room.timeLeft) * 2); // Enemies get tankier
+
+          room.enemies.push({
+            x: spawn.x + (Math.random() * 10 - 5),
+            y: spawn.y + (Math.random() * 10 - 5),
+            hp: hpScale,
+            maxHp: hpScale,
+            speed: 0.3 + (Math.random() * 0.2), // 0.3 to 0.5 per tick
+            id: Date.now() + Math.random()
+          });
+        }
+
+        // Move Enemies toward Core (50, 50)
+        for (let i = room.enemies.length - 1; i >= 0; i--) {
+          const e = room.enemies[i];
+          const dx = 50 - e.x;
+          const dy = 50 - e.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 4) { // Reached Core
+            room.coreHp = Math.max(0, room.coreHp - e.maxHp);
+            room.history.push({ type: 'core_damage', amount: e.maxHp, id: Date.now() + Math.random() });
+            room.enemies.splice(i, 1);
+
+            // Shake UI for everybody
+            if (room.history.length > 20) room.history.shift();
+          } else {
+            e.x += (dx / dist) * e.speed;
+            e.y += (dy / dist) * e.speed;
+          }
+        }
+
+        // Update Bullets
+        for (let i = room.bullets.length - 1; i >= 0; i--) {
+          const b = room.bullets[i];
+          b.x += b.vx;
+          b.y += b.vy;
+
+          if (b.x < 0 || b.x > 100 || b.y < 0 || b.y > 100) {
+            room.bullets.splice(i, 1);
+            continue;
+          }
+
+          // Bullet -> Enemy Collision
+          let hit = false;
+          for (let j = room.enemies.length - 1; j >= 0; j--) {
+            const e = room.enemies[j];
+            const dx = e.x - b.x;
+            const dy = e.y - b.y;
+            if (dx * dx + dy * dy < 16) { // hit radius 4
+              hit = true;
+              e.hp -= 25; // Bullet dmg
+              if (e.hp <= 0) {
+                room.enemies.splice(j, 1);
+                if (room.playersState[b.ownerId]) {
+                  room.playersState[b.ownerId].gold += 10;
+                  room.playersState[b.ownerId].kills++;
+                }
+              }
+              break;
+            }
+          }
+          if (hit) room.bullets.splice(i, 1);
+        }
+
+        // Update Turrets (Auto-fire lasers)
+        for (const t of room.towers) {
+          if (now > t.lastFire + 1000) { // Fire every 1 sec
+            // Find closest enemy within 30 range
+            let closest = null;
+            let minDist = 30; // Range constraint
+
+            for (const e of room.enemies) {
+              const dx = e.x - t.x;
+              const dy = e.y - t.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < minDist) {
+                minDist = dist;
+                closest = e;
+              }
+            }
+
+            if (closest) {
+              closest.hp -= 100; // Laser dmg
+              t.lastFire = now;
+              room.lasers.push({ startX: t.x, startY: t.y, endX: closest.x, endY: closest.y, id: Date.now() + Math.random() });
+
+              if (closest.hp <= 0) {
+                room.enemies = room.enemies.filter(en => en.id !== closest.id);
+                if (room.playersState[t.ownerId]) {
+                  room.playersState[t.ownerId].gold += 10;
+                  room.playersState[t.ownerId].kills++;
+                }
+              }
+            }
+          }
+        }
+
+        // Check lose condition
+        if (room.coreHp <= 0) {
+          room.status = 'finished';
+          room.winner = 'Enemies'; // AI wins
+          clearInterval(room.timerInterval);
+          io.to(roomCode).emit('winnerDeclared', { winnerName: 'THE HORDE', claimType: 'Core Destroyed', prize: 0 });
+        }
+        // Check win condition
+        else if (room.timeLeft <= 0) {
+          room.status = 'finished';
+          clearInterval(room.timerInterval);
+
+          // Find MVP
+          let maxKills = -1;
+          let mvp = null;
+          for (const [pId, pState] of Object.entries(room.playersState)) {
+            if (pState.kills > maxKills) { maxKills = pState.kills; mvp = pId; }
+          }
+          room.winner = mvp;
+          if (mvp && DB.users[mvp]) {
+            io.to(roomCode).emit('winnerDeclared', { winnerName: DB.users[mvp].name, claimType: 'Core Defense MVP', prize: 0 });
+          } else {
+            io.to(roomCode).emit('winnerDeclared', { winnerName: 'THE TEAM', claimType: 'Core Defense Victory', prize: 0 });
+          }
+        }
+
+        broadcastRoomState(roomCode);
+      }, 50); // 50ms tick
+    } else if (room.gameType === 'cararena') {
+      if (room.timerInterval) clearInterval(room.timerInterval);
+      room.timeLeft = 90;
+
+      room.timerInterval = setInterval(() => {
+        if (!DB.rooms[roomCode] || DB.rooms[roomCode].status !== 'playing') {
+          clearInterval(room.timerInterval);
+          return;
+        }
+
+        room.tickInfo = (room.tickInfo || 0) + 1;
+        if (room.tickInfo % 20 === 0) room.timeLeft -= 1;
+
+        // Physics Updates
+        const MAX_SPEED = 2.0;
+        const ACCEL = 0.15;
+        const FRICTION = 0.95; // 5% speed loss per tick
+        const ROTATION_SPEED = 0.15; // Radians per tick
+
+        // Process each player
+        for (const [pId, pState] of Object.entries(room.playersState)) {
+          if (!pState.isAlive) continue;
+
+          // Turn
+          if (pState.steer !== 0) {
+            // Steering only works if moving (forward or backward)
+            const moveSign = pState.velocity >= 0 ? 1 : -1;
+            // Reduce turning radius if moving slowly, max turning if moving fast
+            const turnEfficacy = Math.min(1, Math.abs(pState.velocity) / (MAX_SPEED * 0.5));
+            pState.angle += pState.steer * ROTATION_SPEED * moveSign * turnEfficacy;
+          }
+
+          // Apply acceleration from input (positive is forward, negative is brake/reverse)
+          // pState.accel comes from client
+          if (pState.accel) {
+            pState.velocity += pState.accel * ACCEL;
+          }
+
+          // Apply friction
+          pState.velocity *= FRICTION;
+
+          // Clamp velocity
+          pState.velocity = Math.max(-MAX_SPEED * 0.5, Math.min(MAX_SPEED, pState.velocity));
+
+          // Calculate movement vector based on angle (drift effect: velocity is fully applied in facing direction for arcade feel, 
+          // but we could split it for real drift. We'll stick to arcade grip here for simplicity and fun)
+          const dx = Math.cos(pState.angle) * pState.velocity;
+          const dy = Math.sin(pState.angle) * pState.velocity;
+
+          pState.x += dx;
+          pState.y += dy;
+
+          // Bounds checking (Bounce off walls)
+          if (pState.x < 2 || pState.x > 98) {
+            pState.velocity *= -0.5; // lose speed on wall crash
+            pState.x = Math.max(2, Math.min(98, pState.x));
+          }
+          if (pState.y < 2 || pState.y > 98) {
+            pState.velocity *= -0.5;
+            pState.y = Math.max(2, Math.min(98, pState.y));
+          }
+
+          // Coin collision
+          for (let i = room.coins.length - 1; i >= 0; i--) {
+            const c = room.coins[i];
+            const cdx = pState.x - c.x;
+            const cdy = pState.y - c.y;
+            if (cdx * cdx + cdy * cdy < 9) { // 3 radius
+              // Collect coin
+              pState.coins += 1;
+              room.coins.splice(i, 1);
+              // Spawn new coin
+              room.coins.push({
+                id: Date.now() + Math.random(),
+                x: Math.random() * 90 + 5,
+                y: Math.random() * 90 + 5
+              });
+            }
+          }
+        }
+
+        // Car-to-Car Collisions
+        const playerIds = Object.keys(room.playersState);
+        for (let i = 0; i < playerIds.length; i++) {
+          for (let j = i + 1; j < playerIds.length; j++) {
+            const p1Id = playerIds[i];
+            const p2Id = playerIds[j];
+            const p1 = room.playersState[p1Id];
+            const p2 = room.playersState[p2Id];
+
+            if (!p1.isAlive || !p2.isAlive) continue;
+
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < 16) { // collision radius 4 (squared = 16)
+              // Collision resolution - Elastic push
+              const dist = Math.sqrt(distSq) || 1;
+              const nx = dx / dist; // Normal vector
+              const ny = dy / dist;
+
+              // Separate cars to prevent sticking
+              const overlap = 4 - dist;
+              p1.x -= nx * overlap * 0.5;
+              p1.y -= ny * overlap * 0.5;
+              p2.x += nx * overlap * 0.5;
+              p2.y += ny * overlap * 0.5;
+
+              // Relative velocity magnitude check (who hit who?)
+              // For arcade simplicity, compare absolute velocities
+              const v1 = Math.abs(p1.velocity);
+              const v2 = Math.abs(p2.velocity);
+
+              // High-speed ram logic
+              if (v1 > v2 + 0.5 && v1 > 1.0) {
+                // P1 rammed P2
+                const stolen = Math.floor(p2.coins * 0.2) + 1; // Steal 20% + 1
+                if (p2.coins >= stolen) {
+                  p2.coins -= stolen;
+                  p1.coins += stolen;
+                  room.history.push({ type: 'ram', rammer: p1Id, victim: p2Id, amount: stolen, id: Date.now() + Math.random() });
+                  if (room.history.length > 10) room.history.shift();
+                }
+                p2.velocity = v1 * 1.5; // knockback speed
+                p1.velocity *= 0.5; // Rammer loses speed
+                p2.angle = Math.atan2(ny, nx); // push p2 away from p1
+              } else if (v2 > v1 + 0.5 && v2 > 1.0) {
+                // P2 rammed P1
+                const stolen = Math.floor(p1.coins * 0.2) + 1;
+                if (p1.coins >= stolen) {
+                  p1.coins -= stolen;
+                  p2.coins += stolen;
+                  room.history.push({ type: 'ram', rammer: p2Id, victim: p1Id, amount: stolen, id: Date.now() + Math.random() });
+                  if (room.history.length > 10) room.history.shift();
+                }
+                p1.velocity = v2 * 1.5;
+                p2.velocity *= 0.5;
+                p1.angle = Math.atan2(-ny, -nx);
+              } else {
+                // Equal crash, bounce both
+                p1.velocity *= -0.8;
+                p2.velocity *= -0.8;
+              }
+            }
+          }
+        }
+
+        if (room.timeLeft <= 0) {
+          room.status = 'finished';
+          clearInterval(room.timerInterval);
+
+          let maxCoins = -1;
+          let mvp = null;
+          for (const [pId, pState] of Object.entries(room.playersState)) {
+            if (pState.coins > maxCoins) { maxCoins = pState.coins; mvp = pId; }
+          }
+          room.winner = mvp;
+          if (mvp && DB.users[mvp]) {
+            io.to(roomCode).emit('winnerDeclared', { winnerName: DB.users[mvp].name, claimType: 'Car Arena Winner', prize: 0 });
+          }
+        }
+
+        broadcastRoomState(roomCode);
+      }, 50); // 50ms tick
     }
     broadcastRoomState(roomCode);
   });
@@ -851,6 +1619,232 @@ io.on('connection', (socket) => {
     }
 
     broadcastRoomState(roomCode);
+  });
+
+  // Agar Game Move & Physics Update (Clients tell server where they want to go/are)
+  socket.on('moveAgar', ({ roomCode, userId, x, y }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'agargame' || room.status !== 'playing') return;
+
+    const pState = room.playersState[userId];
+    if (!pState || !pState.isAlive) return;
+
+    // Update position (naive trust, add speed limits in production)
+    pState.x = x;
+    pState.y = y;
+
+    // 1. Check collisions with Food
+    for (let i = room.food.length - 1; i >= 0; i--) {
+      const f = room.food[i];
+      // Simple circular distance check. Adjust scaling to match frontend view projection
+      // Let's assume coords are 0-100 percentages.
+      const dx = Math.abs(pState.x - f.x);
+      const dy = Math.abs(pState.y - f.y);
+      // Rough spherical collision. A radius of 2 is ~2% of screen.
+      if (dx * dx + dy * dy < (pState.radius) * (pState.radius)) {
+        // Eaten
+        room.food.splice(i, 1);
+        pState.radius += 0.2; // Grow slightly
+        pState.score += 10;
+        room.history.push({ type: 'eat_food', id: Date.now() + Math.random(), eventR: pState.radius });
+
+        // Spawn replacement food
+        room.food.push({
+          id: Date.now() + Math.random(),
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+          color: ['#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#A855F7', '#F97316'][Math.floor(Math.random() * 6)]
+        });
+      }
+    }
+
+    // 2. Check collisions with other Players
+    for (const [otherId, otherState] of Object.entries(room.playersState)) {
+      if (otherId === userId || !otherState.isAlive) continue;
+
+      const dx = pState.x - otherState.x;
+      const dy = pState.y - otherState.y;
+      const distSq = dx * dx + dy * dy;
+
+      // If overlapping
+      if (distSq < (pState.radius) * (pState.radius)) {
+        // The larger one eats the smaller one (must be at least 15% larger)
+        if (pState.radius > otherState.radius * 1.15) {
+          // I ate them
+          otherState.isAlive = false;
+          pState.radius += otherState.radius * 0.5; // Absorb 50% mass
+          pState.score += Math.floor(otherState.score / 2) + 50;
+          room.history.push({ type: 'eat_player', predator: userId, prey: otherId, id: Date.now() + Math.random() });
+
+          // Setup respawn
+          setTimeout(() => {
+            if (DB.rooms[roomCode] && DB.rooms[roomCode].status === 'playing') {
+              DB.rooms[roomCode].playersState[otherId] = {
+                x: Math.random() * 90 + 5,
+                y: Math.random() * 90 + 5,
+                radius: 2,
+                score: Math.max(0, otherState.score - 50),
+                isAlive: true
+              };
+              broadcastRoomState(roomCode);
+            }
+          }, 3000);
+        }
+      }
+    }
+
+    // Keep history short
+    if (room.history.length > 10) room.history.shift();
+  });
+
+  socket.on('moveBR', ({ roomCode, userId, x, y, angle }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'battleroyale' || room.status !== 'playing') return;
+    const pState = room.playersState[userId];
+    if (!pState || !pState.isAlive) return;
+
+    pState.x = x;
+    pState.y = y;
+    if (angle !== undefined) pState.angle = angle;
+
+    for (let i = room.loot.length - 1; i >= 0; i--) {
+      const l = room.loot[i];
+      const dx = pState.x - l.x;
+      const dy = pState.y - l.y;
+      if (dx * dx + dy * dy < 4) { // pickup radius
+        if (l.type === 'health') pState.hp = Math.min(100, pState.hp + 25);
+        if (l.type === 'shield') pState.shield = true;
+        if (l.type === 'speed') pState.speed = 1.6;
+        if (l.type === 'gun') pState.weapon = 'gun';
+        room.history.push({ type: 'pickup', item: l.type, player: userId, id: Date.now() + Math.random() });
+        room.loot.splice(i, 1);
+      }
+    }
+    if (room.history.length > 10) room.history.shift();
+  });
+
+  socket.on('shootBR', ({ roomCode, userId, angle }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'battleroyale' || room.status !== 'playing') return;
+    const pState = room.playersState[userId];
+    if (!pState || !pState.isAlive || pState.weapon !== 'gun') return;
+
+    const speed = 2.0;
+    room.bullets.push({
+      x: pState.x, y: pState.y,
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      ownerId: userId, id: Date.now() + Math.random()
+    });
+  });
+
+  // Bomber Grid Moves
+  socket.on('moveBomber', ({ roomCode, userId, x, y }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'bombergrid' || room.status !== 'playing') return;
+    const pState = room.playersState[userId];
+    if (!pState || !pState.isAlive) return;
+
+    // Basic bounds
+    pState.x = Math.max(0, Math.min(14, x));
+    pState.y = Math.max(0, Math.min(14, y));
+
+    // Pickup powerups
+    const cx = Math.round(pState.x);
+    const cy = Math.round(pState.y);
+    for (let i = room.powerups.length - 1; i >= 0; i--) {
+      const pu = room.powerups[i];
+      if (pu.x === cx && pu.y === cy) {
+        if (pu.type === 'bomb') pState.maxBombs++;
+        if (pu.type === 'fire') pState.blastRadius++;
+        if (pu.type === 'speed') pState.speed = Math.min(1.5, pState.speed + 0.1);
+        room.powerups.splice(i, 1);
+        room.history.push({ type: 'pickup', item: pu.type, player: userId, id: Date.now() + Math.random() });
+      }
+    }
+
+    // Keep history short
+    if (room.history.length > 20) room.history.shift();
+  });
+
+  socket.on('placeBomb', ({ roomCode, userId }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'bombergrid' || room.status !== 'playing') return;
+    const pState = room.playersState[userId];
+    if (!pState || !pState.isAlive) return;
+
+    if (pState.currentBombs < pState.maxBombs) {
+      const cx = Math.round(pState.x);
+      const cy = Math.round(pState.y);
+
+      // Check if bomb already there
+      if (!room.bombs.find(b => b.x === cx && b.y === cy)) {
+        pState.currentBombs++;
+        room.bombs.push({
+          x: cx, y: cy,
+          ownerId: userId,
+          radius: pState.blastRadius,
+          explodeTime: Date.now() + 2500, // 2.5s fuse
+          id: Date.now() + Math.random()
+        });
+        room.history.push({ type: 'place_bomb', player: userId, x: cx, y: cy, id: Date.now() + Math.random() });
+      }
+    }
+    if (room.history.length > 20) room.history.shift();
+  });
+
+  // Core Defense Actions
+  socket.on('moveTD', ({ roomCode, userId, x, y }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'coredefense' || room.status !== 'playing') return;
+    const pState = room.playersState[userId];
+    if (!pState || !pState.isAlive) return;
+
+    pState.x = Math.max(0, Math.min(100, x));
+    pState.y = Math.max(0, Math.min(100, y));
+  });
+
+  socket.on('shootTD', ({ roomCode, userId, angle }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'coredefense' || room.status !== 'playing') return;
+    const pState = room.playersState[userId];
+    if (!pState || !pState.isAlive) return;
+
+    const speed = 3.0;
+    room.bullets.push({
+      x: pState.x, y: pState.y,
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      ownerId: userId, id: Date.now() + Math.random()
+    });
+  });
+
+  socket.on('buildTower', ({ roomCode, userId }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'coredefense' || room.status !== 'playing') return;
+    const pState = room.playersState[userId];
+    if (!pState || !pState.isAlive) return;
+
+    if (pState.gold >= 50) {
+      pState.gold -= 50;
+      room.towers.push({
+        x: pState.x, y: pState.y,
+        ownerId: userId,
+        lastFire: 0,
+        id: Date.now() + Math.random()
+      });
+      room.history.push({ type: 'build_tower', player: userId, id: Date.now() + Math.random() });
+      if (room.history.length > 20) room.history.shift();
+    }
+  });
+
+  // Car Arena Inputs
+  socket.on('carInput', ({ roomCode, userId, accel, steer }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'cararena' || room.status !== 'playing') return;
+    const pState = room.playersState[userId];
+    if (!pState || !pState.isAlive) return;
+
+    if (accel !== undefined) pState.accel = accel;
+    if (steer !== undefined) pState.steer = steer;
   });
 
   // --- WEBRTC & EMOJI SIGNALING ---
