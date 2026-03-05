@@ -4,6 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { Server } = require('socket.io');
 const { generateTicket, checkJaldi5, checkRow, checkFullHouse, checkFourCorners } = require('./utils/tambola');
+const { processLudoMove, canMoveAnyToken } = require('./utils/ludoEngine');
 
 dotenv.config();
 const app = express();
@@ -183,6 +184,20 @@ io.on('connection', (socket) => {
       defaultRoomData.tokens = { [userId]: [-1, -1, -1, -1] };
       defaultRoomData.winner = null;
       defaultRoomData.colors = { [userId]: 'red' };
+      defaultRoomData.sixStreak = { [userId]: 0 };
+      defaultRoomData.history = [];
+    } else if (gameType === 'blockblast') {
+      defaultRoomData.score = 0;
+      defaultRoomData.status = 'playing';
+      defaultRoomData.winner = null;
+    } else if (gameType === 'territorywar') {
+      defaultRoomData.grid = Array(15).fill(null).map(() => Array(15).fill(null));
+      defaultRoomData.positions = { [userId]: { r: 0, c: 0 } }; // Host spawns Top-Left
+      defaultRoomData.colors = { [userId]: 'red' };
+      defaultRoomData.scores = { [userId]: 0 };
+      defaultRoomData.timeLeft = 60;
+      defaultRoomData.status = 'playing';
+      defaultRoomData.winner = null;
       defaultRoomData.history = [];
     }
 
@@ -215,9 +230,23 @@ io.on('connection', (socket) => {
         room.positions[userId] = 0;
       } else if (room.gameType === 'ludo') {
         room.tokens[userId] = [-1, -1, -1, -1];
+        room.sixStreak[userId] = 0; // Initialize streak
         const colors = ['red', 'blue', 'green', 'yellow'];
         const used = Object.values(room.colors || {});
         room.colors[userId] = colors.find(c => !used.includes(c)) || 'red';
+      } else if (room.gameType === 'territorywar') {
+        const availableColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan'];
+        const usedColors = Object.values(room.colors || {});
+        const myColor = availableColors.find(c => !usedColors.includes(c)) || 'gray';
+        room.colors[userId] = myColor;
+
+        // Distribute spawns to different corners/edges
+        const spawns = [
+          { r: 0, c: 0 }, { r: 14, c: 14 }, { r: 0, c: 14 }, { r: 14, c: 0 },
+          { r: 7, c: 7 }, { r: 0, c: 7 }, { r: 14, c: 7 }, { r: 7, c: 0 }
+        ];
+        room.positions[userId] = spawns[room.players.length - 1] || { r: 7, c: 7 };
+        room.scores[userId] = 0;
       }
     }
 
@@ -297,6 +326,24 @@ io.on('connection', (socket) => {
     } else if (room.gameType === 'tictactoe') {
       room.board = Array(9).fill(null);
       room.turn = room.hostId;
+    } else if (room.gameType === 'blockblast') {
+      room.score = 0;
+      room.status = 'playing';
+    } else if (room.gameType === 'territorywar') {
+      room.grid = Array(15).fill(null).map(() => Array(15).fill(null));
+      room.scores = {};
+      room.timeLeft = 60;
+      room.status = 'playing';
+      room.winner = null;
+      room.history = [];
+      room.players.forEach((p, idx) => {
+        room.scores[p.id] = 0;
+        const spawns = [
+          { r: 0, c: 0 }, { r: 14, c: 14 }, { r: 0, c: 14 }, { r: 14, c: 0 },
+          { r: 7, c: 7 }, { r: 0, c: 7 }, { r: 14, c: 7 }, { r: 7, c: 0 }
+        ];
+        room.positions[p.id] = spawns[idx] || { r: 7, c: 7 };
+      });
     } else {
       room.drawnNumbers = [];
       room.tickets = {};
@@ -467,6 +514,48 @@ io.on('connection', (socket) => {
   });
 
   // --- GAME SPECIFIC LOGICS ---
+
+  // Generic Game Start (Timer Loop)
+  socket.on('startGame', ({ roomCode, userId }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.hostId !== userId || room.status !== 'waiting') return;
+
+    room.status = 'playing';
+
+    if (room.gameType === 'territorywar') {
+      if (room.timerInterval) clearInterval(room.timerInterval);
+      room.timeLeft = 60;
+      room.timerInterval = setInterval(() => {
+        if (!DB.rooms[roomCode] || DB.rooms[roomCode].status !== 'playing') {
+          clearInterval(room.timerInterval);
+          return; // Room closed or stopped
+        }
+        DB.rooms[roomCode].timeLeft -= 1;
+
+        if (DB.rooms[roomCode].timeLeft <= 0) {
+          // Game Over
+          DB.rooms[roomCode].status = 'finished';
+          clearInterval(room.timerInterval);
+
+          // Determine Winner
+          let maxScore = -1;
+          let winner = null;
+          for (const [pId, score] of Object.entries(DB.rooms[roomCode].scores)) {
+            if (score > maxScore) {
+              maxScore = score;
+              winner = pId;
+            }
+          }
+          DB.rooms[roomCode].winner = winner;
+          if (winner && DB.users[winner]) {
+            io.to(roomCode).emit('winnerDeclared', { winnerName: DB.users[winner].name, claimType: 'Territory War Win', prize: 0 });
+          }
+        }
+        broadcastRoomState(roomCode);
+      }, 1000);
+    }
+    broadcastRoomState(roomCode);
+  });
 
   // Tic Tac Toe Move
   socket.on('tictactoeMove', ({ roomCode, userId, index }) => {
@@ -654,16 +743,30 @@ io.on('connection', (socket) => {
     room.lastDice = dice;
     room.diceRolled = true;
 
+    if (dice === 6) {
+      room.sixStreak[userId] = (room.sixStreak[userId] || 0) + 1;
+    } else {
+      room.sixStreak[userId] = 0;
+    }
+
+    // 3 Sixes in a row = Lose turn
+    if (room.sixStreak[userId] === 3) {
+      room.sixStreak[userId] = 0;
+      room.diceRolled = false;
+      const idx = room.players.findIndex(p => p.id === userId);
+      const nextIdx = (idx + 1) % room.players.length;
+      room.turn = room.players[nextIdx].id;
+      broadcastRoomState(roomCode);
+      return;
+    }
+
     room.history.push({ userId, type: 'roll', value: dice });
     if (room.history.length > 10) room.history.shift();
 
     // Check if player can move ANY token
     const tokens = room.tokens[userId];
-    let canMove = false;
-    for (let pos of tokens) {
-      if (pos === -1 && dice === 6) canMove = true;
-      if (pos >= 0 && pos + dice <= 56) canMove = true; // 56 is home
-    }
+    const userColor = room.colors[userId];
+    const canMove = canMoveAnyToken(userId, userColor, dice, tokens);
 
     if (!canMove) {
       // pass turn
@@ -682,67 +785,26 @@ io.on('connection', (socket) => {
     if (room.turn !== userId || !room.diceRolled) return;
 
     const dice = room.lastDice;
-    const tokens = room.tokens[userId];
-    const pos = tokens[tokenIndex];
+    const userColor = room.colors[userId];
 
-    let newPos = pos;
-    if (pos === -1) {
-      if (dice !== 6) return; // Invalid move
-      newPos = 0;
-    } else {
-      if (pos + dice > 56) return; // Invalid move
-      newPos = pos + dice;
-    }
+    const result = processLudoMove(userId, userColor, tokenIndex, dice, room);
 
-    // Apply move locally
-    tokens[tokenIndex] = newPos;
+    if (!result.success) return; // Invalid move
+
     room.diceRolled = false;
 
-    let extraTurn = false;
-    let captureOccurred = false;
-
-    if (dice === 6) extraTurn = true;
-    if (newPos === 56) extraTurn = true; // extra turn for reaching home
-
-    // Check Capture if on main track
-    if (newPos >= 0 && newPos <= 50) {
-      const colorOffset = { 'red': 0, 'green': 13, 'yellow': 26, 'blue': 39 };
-      const myColor = room.colors[userId];
-      const myGlobal = (colorOffset[myColor] + newPos) % 52;
-
-      const safeZones = [0, 8, 13, 21, 26, 34, 39, 47];
-
-      if (!safeZones.includes(myGlobal)) {
-        // Check other players
-        for (let p of room.players) {
-          if (p.id === userId) continue;
-          const oppColor = room.colors[p.id];
-          const oppTokens = room.tokens[p.id];
-          for (let i = 0; i < 4; i++) {
-            const oppPos = oppTokens[i];
-            if (oppPos >= 0 && oppPos <= 50) {
-              const oppGlobal = (colorOffset[oppColor] + oppPos) % 52;
-              if (oppGlobal === myGlobal) {
-                // Capture!
-                oppTokens[i] = -1; // Send back to base
-                extraTurn = true;
-                captureOccurred = true;
-                room.history.push({ userId, type: 'capture', victim: p.id });
-              }
-            }
-          }
-        }
-      }
+    if (result.capturedUser) {
+      room.history.push({ userId, type: 'capture', victim: result.capturedUser });
     }
 
-    // Check Win Condition (all 4 tokens are 56)
-    if (tokens.every(t => t === 56)) {
+    // Check Win Condition (all 4 tokens are 999)
+    if (result.hasWon) {
       room.status = 'finished';
       room.winner = userId;
       io.to(roomCode).emit('winnerDeclared', { winnerName: DB.users[userId].name, claimType: 'Ludo Win', prize: 0 });
     } else {
       // Pass turn if no extra turn
-      if (!extraTurn) {
+      if (!result.extraTurn) {
         const idx = room.players.findIndex(p => p.id === userId);
         const nextIdx = (idx + 1) % room.players.length;
         room.turn = room.players[nextIdx].id;
@@ -753,23 +815,61 @@ io.on('connection', (socket) => {
     broadcastRoomState(roomCode);
   });
 
+  // Territory War Move
+  socket.on('moveTerritory', ({ roomCode, userId, r, c }) => {
+    const room = DB.rooms[roomCode];
+    if (!room || room.gameType !== 'territorywar' || room.status !== 'playing') return;
+
+    const myPos = room.positions[userId];
+    if (!myPos) return;
+
+    // Validate move (must be exactly 1 step orthogonally or diagonally, or just trust client for now within a 2 tile distance to prevent warping)
+    const dR = Math.abs(r - myPos.r);
+    const dC = Math.abs(c - myPos.c);
+
+    if (r < 0 || r > 14 || c < 0 || c > 14) return;
+    if (dR > 1 || dC > 1) return; // Too far
+
+    const myColor = room.colors[userId];
+
+    // Update position
+    room.positions[userId] = { r, c };
+
+    // Claim territory
+    const prevOwner = room.grid[r][c];
+
+    if (prevOwner !== userId) {
+      room.grid[r][c] = userId;
+      room.scores[userId] = (room.scores[userId] || 0) + 1;
+
+      if (prevOwner && room.scores[prevOwner] > 0) {
+        room.scores[prevOwner] -= 1;
+        // Add a "steal" event to history for VFX triggers on frontend
+        room.history.push({ type: 'steal', victim: prevOwner, thief: userId, r, c, id: Date.now() + Math.random() });
+        if (room.history.length > 5) room.history.shift();
+      }
+    }
+
+    broadcastRoomState(roomCode);
+  });
+
   // --- WEBRTC & EMOJI SIGNALING ---
 
-  socket.on('webrtcOffer', ({ roomCode, offer, targetId, callerId }) => {
+  socket.on('webrtcOffer', ({ offer, targetId, callerId }) => {
     const targetUser = DB.users[targetId];
     if (targetUser && targetUser.socketId) {
       io.to(targetUser.socketId).emit('webrtcOffer', { offer, callerId });
     }
   });
 
-  socket.on('webrtcAnswer', ({ roomCode, answer, targetId }) => {
+  socket.on('webrtcAnswer', ({ answer, targetId }) => {
     const targetUser = DB.users[targetId];
     if (targetUser && targetUser.socketId) {
       io.to(targetUser.socketId).emit('webrtcAnswer', { answer });
     }
   });
 
-  socket.on('webrtcIceCandidate', ({ roomCode, candidate, targetId }) => {
+  socket.on('webrtcIceCandidate', ({ candidate, targetId }) => {
     const targetUser = DB.users[targetId];
     if (targetUser && targetUser.socketId) {
       io.to(targetUser.socketId).emit('webrtcIceCandidate', { candidate });

@@ -62,6 +62,7 @@ export default function GameRoom() {
     };
 
     const sendChat = (e) => {
+    
         e.preventDefault();
         if (!chatInput.trim()) return;
         socket.emit('sendChatMessage', { roomCode, userId: user.id, message: chatInput });

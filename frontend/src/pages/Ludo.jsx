@@ -6,61 +6,68 @@ import { Dice5, Trophy, LogOut } from 'lucide-react';
 import VoiceChat from '../components/VoiceChat';
 import EmojiOverlay from '../components/EmojiOverlay';
 import VFXOverlay from '../components/VFXOverlay';
+import ThreeDice from '../components/ThreeDice';
+import { Star } from 'lucide-react';
 
 // Ludo 52-step peripheral track coordinates (x=col, y=row)
-// Mapped globally per typical Ludo layout.
+// Ludo 52-step peripheral track coordinates (x=col, y=row)
+// Starting from Red's start (TopVertical column 6, row 1) and going clockwise.
 const TRACK = [
-    { x: 1, y: 6 }, { x: 2, y: 6 }, { x: 3, y: 6 }, { x: 4, y: 6 }, { x: 5, y: 6 },
-    { x: 6, y: 5 }, { x: 6, y: 4 }, { x: 6, y: 3 }, { x: 6, y: 2 }, { x: 6, y: 1 }, { x: 6, y: 0 },
-    { x: 7, y: 0 }, { x: 8, y: 0 },
-    { x: 8, y: 1 }, { x: 8, y: 2 }, { x: 8, y: 3 }, { x: 8, y: 4 }, { x: 8, y: 5 },
-    { x: 9, y: 6 }, { x: 10, y: 6 }, { x: 11, y: 6 }, { x: 12, y: 6 }, { x: 13, y: 6 }, { x: 14, y: 6 },
-    { x: 14, y: 7 }, { x: 14, y: 8 },
+    { x: 6, y: 1 }, { x: 6, y: 0 }, { x: 7, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 1 }, { x: 8, y: 2 }, { x: 8, y: 3 }, { x: 8, y: 4 }, { x: 8, y: 5 },
+    { x: 9, y: 6 }, { x: 10, y: 6 }, { x: 11, y: 6 }, { x: 12, y: 6 }, { x: 13, y: 6 }, { x: 14, y: 6 }, { x: 14, y: 7 }, { x: 14, y: 8 },
     { x: 13, y: 8 }, { x: 12, y: 8 }, { x: 11, y: 8 }, { x: 10, y: 8 }, { x: 9, y: 8 },
-    { x: 8, y: 9 }, { x: 8, y: 10 }, { x: 8, y: 11 }, { x: 8, y: 12 }, { x: 8, y: 13 }, { x: 8, y: 14 },
-    { x: 7, y: 14 }, { x: 6, y: 14 },
+    { x: 8, y: 9 }, { x: 8, y: 10 }, { x: 8, y: 11 }, { x: 8, y: 12 }, { x: 8, y: 13 }, { x: 8, y: 14 }, { x: 7, y: 14 }, { x: 6, y: 14 },
     { x: 6, y: 13 }, { x: 6, y: 12 }, { x: 6, y: 11 }, { x: 6, y: 10 }, { x: 6, y: 9 },
-    { x: 5, y: 8 }, { x: 4, y: 8 }, { x: 3, y: 8 }, { x: 2, y: 8 }, { x: 1, y: 8 }, { x: 0, y: 8 },
-    { x: 0, y: 7 }, { x: 0, y: 6 }
+    { x: 5, y: 8 }, { x: 4, y: 8 }, { x: 3, y: 8 }, { x: 2, y: 8 }, { x: 1, y: 8 }, { x: 0, y: 8 }, { x: 0, y: 7 }, { x: 0, y: 6 },
+    { x: 1, y: 6 }, { x: 2, y: 6 }, { x: 3, y: 6 }, { x: 4, y: 6 }, { x: 5, y: 6 },
+    { x: 6, y: 5 }, { x: 6, y: 4 }, { x: 6, y: 3 }, { x: 6, y: 2 }
 ];
 
 const getGlobalPos = (color, relPos) => {
-    if (relPos < 0 || relPos > 50) return null;
-    const offsets = { red: 0, green: 13, yellow: 26, blue: 39 };
+    if (relPos < 0 || relPos > 51) return null; // 0-51 is main path
+    const offsets = { red: 43, blue: 4, yellow: 30, green: 17 };
     return (offsets[color] + relPos) % 52;
 };
 
 const getPosCoordinates = (color, tokenIdx, relPos) => {
     if (relPos === -1) {
-        // Precise clusters within the 4 round sandpits.
-        // Pits are at x=1,y=1 (4x4), x=10,y=1, x=1,y=10, x=10,y=10
-        // Centers are 2.5 and 11.5. Token radius offsets by ~0.7 cells.
+        // precise clusters within the 4 round sandpits.
         const bases = {
-            blue: [{ x: 1.5, y: 1.5 }, { x: 3.5, y: 1.5 }, { x: 1.5, y: 3.5 }, { x: 3.5, y: 3.5 }],
-            red: [{ x: 10.5, y: 1.5 }, { x: 12.5, y: 1.5 }, { x: 10.5, y: 3.5 }, { x: 12.5, y: 3.5 }],
+            red: [{ x: 1.5, y: 1.5 }, { x: 3.5, y: 1.5 }, { x: 1.5, y: 3.5 }, { x: 3.5, y: 3.5 }],
+            blue: [{ x: 10.5, y: 1.5 }, { x: 12.5, y: 1.5 }, { x: 10.5, y: 3.5 }, { x: 12.5, y: 3.5 }],
             yellow: [{ x: 1.5, y: 10.5 }, { x: 3.5, y: 10.5 }, { x: 1.5, y: 12.5 }, { x: 3.5, y: 12.5 }],
             green: [{ x: 10.5, y: 10.5 }, { x: 12.5, y: 10.5 }, { x: 10.5, y: 12.5 }, { x: 12.5, y: 12.5 }]
         };
         return bases[color][tokenIdx];
     }
 
-    if (relPos >= 0 && relPos <= 50) {
+    if (relPos >= 0 && relPos <= 51) {
         return TRACK[getGlobalPos(color, relPos)];
     }
 
-    // Home Stretch (51 - 55)
-    // Yellow home row is y=7, filling x=1 to 5
-    // Blue home col is x=7, filling y=1 to 5
-    // Red home row is y=7, filling x=13 to 9
-    // Green home col is x=7, filling y=13 to 9
-    const steps = relPos - 50;
-    if (color === 'yellow') return { x: steps, y: 7 };
-    if (color === 'blue') return { x: 7, y: steps };
-    if (color === 'red') return { x: 14 - steps, y: 7 };
-    if (color === 'green') return { x: 7, y: 14 - steps };
+    // Home Stretches
+    // 100-104 (Red), 200-204 (Green), 300-304 (Yellow), 400-404 (Blue)
+    if (relPos >= 100 && relPos <= 104) { // red (Left to center)
+        const step = relPos - 100 + 1; // 1 to 5
+        return { x: step, y: 7 };
+    }
+    if (relPos >= 200 && relPos <= 204) { // green (Right to center)
+        const step = relPos - 200 + 1; // 1 to 5
+        return { x: 14 - step, y: 7 };
+    }
+    if (relPos >= 300 && relPos <= 304) { // yellow (Bottom to center)
+        const step = relPos - 300 + 1; // 1 to 5
+        return { x: 7, y: 14 - step };
+    }
+    if (relPos >= 400 && relPos <= 404) { // blue (Top to center)
+        const step = relPos - 400 + 1; // 1 to 5
+        return { x: 7, y: step };
+    }
 
-    // 56 (Finished in center)
-    return { x: 7, y: 7 };
+    if (relPos === 999) { // Finished in center
+        return { x: 7, y: 7 };
+    }
+    return null;
 };
 
 const COLOR_MAP = {
@@ -86,11 +93,16 @@ export default function Ludo() {
         if (isRolling) {
             interval = setInterval(() => {
                 setCurrentFace(Math.floor(Math.random() * 6) + 1);
-            }, 80); // Fast 80ms flicker
-        } else if (safeGameState.lastDice) {
-            setCurrentFace(safeGameState.lastDice);
+            }, 80);
+        } else {
+            // Force sync when not rolling
+            if (safeGameState.lastDice) {
+                setCurrentFace(safeGameState.lastDice);
+            }
         }
-        return () => clearInterval(interval);
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, [isRolling, safeGameState.lastDice]);
 
     const [vfxType, setVfxType] = useState(null);
@@ -132,10 +144,11 @@ export default function Ludo() {
         const dice = safeGameState.lastDice;
         const pos = safeGameState.tokens[user.id][tokenIndex];
 
-        // Validation check for UI feedback
+        // The validation is handled natively by the backend, the UI relies on valid boolean merely for cursor rendering
         let valid = false;
         if (pos === -1 && dice === 6) valid = true;
-        if (pos >= 0 && pos + dice <= 56) valid = true;
+        if (pos >= 0 && pos <= 50) valid = true; // simplifying valid rendering proxy
+        if (pos >= 100 && pos <= 404) valid = true;
 
         if (valid) {
             socket.emit('moveTokenLudo', { roomCode, userId: user.id, tokenIndex });
@@ -148,13 +161,66 @@ export default function Ludo() {
         navigate('/');
     };
 
+    const [displayTokens, setDisplayTokens] = useState({});
+
+    useEffect(() => {
+        if (!safeGameState.tokens) return;
+
+        // Initialize if empty
+        if (Object.keys(displayTokens).length === 0) {
+            setDisplayTokens(JSON.parse(JSON.stringify(safeGameState.tokens)));
+            return;
+        }
+
+        // Find what moved
+        Object.keys(safeGameState.tokens).forEach(pId => {
+            const current = safeGameState.tokens[pId];
+            const displayed = displayTokens[pId];
+
+            if (displayed) {
+                current.forEach((targetPos, tIdx) => {
+                    const startPos = displayed[tIdx];
+                    if (startPos !== targetPos) {
+                        if (targetPos === -1 || targetPos === 0 || targetPos >= 100) {
+                            // Instant jump for reset/base/entering home corridor or arriving at finish
+                            setDisplayTokens(prev => ({
+                                ...prev,
+                                [pId]: prev[pId].map((v, i) => i === tIdx ? targetPos : v)
+                            }));
+                        } else {
+                            // Sequential move up to target pos logic on main board
+                            // (If crossing bounds, we skip for now and insta jump)
+                            if (targetPos < startPos) {
+                                setDisplayTokens(prev => ({
+                                    ...prev,
+                                    [pId]: prev[pId].map((v, i) => i === tIdx ? targetPos : v)
+                                }));
+                            } else {
+                                let currentStep = startPos;
+                                const interval = setInterval(() => {
+                                    currentStep++;
+                                    setDisplayTokens(prev => ({
+                                        ...prev,
+                                        [pId]: prev[pId].map((v, i) => i === tIdx ? currentStep : v)
+                                    }));
+                                    if (currentStep >= targetPos) clearInterval(interval);
+                                }, 150);
+                            }
+                        }
+                    }
+                });
+            }
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [safeGameState.tokens]);
+
     const renderBoardBackground = () => {
         const cells = [];
 
         // 1. Render giant sand-pits
         const sandPits = [
-            { x: 1, y: 1, color: 'blue' },
-            { x: 10, y: 1, color: 'red' },
+            { x: 1, y: 1, color: 'red' },
+            { x: 10, y: 1, color: 'blue' },
             { x: 1, y: 10, color: 'yellow' },
             { x: 10, y: 10, color: 'green' }
         ];
@@ -197,23 +263,23 @@ export default function Ludo() {
                     let bg = 'bg-[#f0c386]'; // default light wood
                     let isSafe = false;
 
-                    // Starts (match exact screenshot colors)
-                    if (r === 6 && c === 1) bg = 'bg-[#FDE047]'; // Yellow
-                    else if (r === 1 && c === 8) bg = 'bg-[#93C5FD]'; // Blue
-                    else if (r === 8 && c === 13) bg = 'bg-[#FCA5A5]'; // Red
-                    else if (r === 13 && c === 6) bg = 'bg-[#86EFAC]'; // Green
+                    // Starts (Corrected to standard mapping for Red:TopLeft, Blue:TopRight)
+                    if (r === 6 && c === 1) bg = 'bg-[#EF4444]'; // Red (TopLeft arm)
+                    else if (r === 1 && c === 8) bg = 'bg-[#3B82F6]'; // Blue (TopRight arm)
+                    else if (r === 8 && c === 13) bg = 'bg-[#22C55E]'; // Green (Right arm)
+                    else if (r === 13 && c === 6) bg = 'bg-[#EAB308]'; // Yellow (Bottom arm)
 
                     // Other Safes
-                    else if (r === 2 && c === 6) { bg = 'bg-[#93C5FD]'; isSafe = true; } // Blue arm safe
-                    else if (r === 6 && c === 12) { bg = 'bg-[#FCA5A5]'; isSafe = true; } // Red arm safe
-                    else if (r === 12 && c === 8) { bg = 'bg-[#86EFAC]'; isSafe = true; } // Green arm safe
-                    else if (r === 8 && c === 2) { bg = 'bg-[#FDE047]'; isSafe = true; } // Yellow arm safe
+                    else if (r === 2 && c === 6) { bg = 'bg-[#EF4444]'; isSafe = true; } // Red Safe
+                    else if (r === 6 && c === 12) { bg = 'bg-[#3B82F6]'; isSafe = true; } // Blue Safe
+                    else if (r === 12 && c === 8) { bg = 'bg-[#22C55E]'; isSafe = true; } // Green Safe
+                    else if (r === 8 && c === 2) { bg = 'bg-[#EAB308]'; isSafe = true; } // Yellow Safe
 
                     // Home stretches
-                    else if (r === 7 && c >= 1 && c <= 5) bg = 'bg-[#FDE047]';
-                    else if (c === 7 && r >= 1 && r <= 5) bg = 'bg-[#93C5FD]';
-                    else if (r === 7 && c >= 9 && c <= 13) bg = 'bg-[#FCA5A5]';
-                    else if (c === 7 && r >= 9 && r <= 13) bg = 'bg-[#86EFAC]';
+                    else if (r === 7 && c >= 1 && c <= 5) bg = 'bg-[#FCA5A5]'; // Red (left horizontal)
+                    else if (c === 7 && r >= 1 && r <= 5) bg = 'bg-[#93C5FD]'; // Blue (top vertical)
+                    else if (r === 7 && c >= 9 && c <= 13) bg = 'bg-[#86EFAC]'; // Green (right horizontal)
+                    else if (c === 7 && r >= 9 && r <= 13) bg = 'bg-[#FDE047]'; // Yellow (bottom vertical)
 
                     cells.push(
                         <div key={`${r}-${c}`}
@@ -226,7 +292,7 @@ export default function Ludo() {
                                 backgroundImage: `url("https://www.transparenttextures.com/patterns/wood-pattern.png")`
                             }}
                         >
-                            {isSafe && <span className="text-white/60 text-xs md:text-xl drop-shadow-md pb-1 pointer-events-none opacity-50 block">🍷</span>}
+                            {isSafe && <Star className="text-white/80 w-[60%] h-[60%]" fill="white" />}
                         </div>
                     );
                 }
@@ -239,10 +305,10 @@ export default function Ludo() {
                 left: `${(6 / 15) * 100}%`, top: `${(6 / 15) * 100}%`, width: `${(3 / 15) * 100}%`, height: `${(3 / 15) * 100}%`
             }}>
                 <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_15px_rgba(0,0,0,0.6)]">
-                    <polygon points="0,0 50,50 0,100" fill="#FACC15" stroke="#78350F" strokeWidth="2" />
+                    <polygon points="0,0 50,50 0,100" fill="#F87171" stroke="#78350F" strokeWidth="2" />
                     <polygon points="0,0 100,0 50,50" fill="#60A5FA" stroke="#78350F" strokeWidth="2" />
-                    <polygon points="100,0 100,100 50,50" fill="#F87171" stroke="#78350F" strokeWidth="2" />
-                    <polygon points="0,100 100,100 50,50" fill="#4ADE80" stroke="#78350F" strokeWidth="2" />
+                    <polygon points="100,0 100,100 50,50" fill="#4ADE80" stroke="#78350F" strokeWidth="2" />
+                    <polygon points="0,100 100,100 50,50" fill="#FACC15" stroke="#78350F" strokeWidth="2" />
                 </svg>
             </div>
         );
@@ -257,27 +323,30 @@ export default function Ludo() {
 
             // Positioning exactly over the 4 quadrants corresponding to the reference image
             let posProps = {};
-            if (pColorName === 'blue') posProps = { left: '8%', top: '2%' };
-            if (pColorName === 'red') posProps = { right: '8%', top: '2%' };
-            if (pColorName === 'yellow') posProps = { left: '8%', bottom: '2%' };
-            if (pColorName === 'green') posProps = { right: '25%', bottom: '2%' }; // Kept away from Dice!
+            if (pColorName === 'red') posProps = { left: '-12%', top: '-8%' };
+            if (pColorName === 'blue') posProps = { right: '-12%', top: '-8%' };
+            if (pColorName === 'yellow') posProps = { left: '-12%', bottom: '-8%' };
+            if (pColorName === 'green') posProps = { right: '-12%', bottom: '-8%' };
+
+
 
             const isTurn = safeGameState.turn === p.id;
 
             return (
-                <div key={p.id} className={`absolute flex flex-col items-center gap-1 z-30 pointer-events-none transition-all duration-300 ${isTurn ? 'scale-110 drop-shadow-[0_0_20px_#FDE047]' : 'opacity-90'}`} style={posProps}>
-                    <div className="w-10 h-10 md:w-16 md:h-16 rounded-xl border-4 flex items-center justify-center font-black text-white text-xl md:text-3xl shadow-[0_5px_15px_rgba(0,0,0,0.8)]" style={{
-                        backgroundColor: COLOR_MAP[pColorName],
-                        borderColor: '#5c3a21',
-                        backgroundImage: 'url("https://www.transparenttextures.com/patterns/wood-pattern.png")'
-                    }}>
-                        👤
+                <div key={p.id} className={`absolute flex flex-col items-center gap-2 z-30 pointer-events-none transition-all duration-300 ${isTurn ? 'scale-110 drop-shadow-[0_0_25px_rgba(253,224,71,0.6)]' : 'opacity-80'}`} style={posProps}>
+                    <div
+                        className={`w-12 h-12 md:w-20 md:h-20 rounded-2xl border-[3px] md:border-[5px] flex items-center justify-center font-black text-white text-2xl md:text-4xl shadow-[0_10px_25px_rgba(0,0,0,0.6)] ${isTurn ? 'ring-4 ring-yellow-400 animate-pulse' : ''}`}
+                        style={{
+                            backgroundColor: COLOR_MAP[pColorName],
+                            borderColor: '#ffffff',
+                            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 100%)'
+                        }}
+                    >
+                        {p.name.charAt(0).toUpperCase()}
                     </div>
-                    <div className={`
-                        bg-[#825424] border-2 border-[#4a2e15] rounded text-white text-[8px] md:text-xs font-bold shadow-lg px-2 md:px-4 py-0.5 md:py-1 truncate max-w-[80px] md:max-w-[120px] text-center
-                    `} style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/wood-pattern.png")' }}>
+                    <div className="bg-[#5c3a21] border-2 border-white/20 rounded-full text-white text-[10px] md:text-sm font-black shadow-2xl px-3 md:px-5 py-0.5 md:py-1 truncate max-w-[100px] md:max-w-[150px] text-center border-t-white/30 border-b-black/40">
                         {p.name}
-                        {p.id === user.id && <span className="text-yellow-300 text-[6px] md:text-[8px] block">(YOU)</span>}
+                        {p.id === user.id && <span className="text-yellow-400 text-[8px] md:text-[10px] block mt- -1">YOU</span>}
                     </div>
                 </div>
             )
@@ -311,7 +380,7 @@ export default function Ludo() {
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-6xl flex justify-center pb-20 relative">
 
                 {/* FULL SCREEN HERO BOARD */}
-                <div className="w-full aspect-square max-w-[95vw] md:max-w-[85vh] xl:max-w-[900px] xl:h-[900px] mx-auto rounded-md md:rounded-[1rem] border-[10px] md:border-[16px] border-[#5c3a21] p-[1%] relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden" style={{ backgroundColor: '#5c8a32', backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-matter.png")' }}>
+                <div className="w-full aspect-square max-w-[95vw] md:max-w-[85vh] xl:max-w-[900px] xl:h-[900px] mx-auto rounded-md md:rounded-[1rem] border-[10px] md:border-[16px] border-[#5c3a21] p-[1%] relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.9)]" style={{ backgroundColor: '#5c8a32', backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-matter.png")' }}>
 
                     <div className="w-full h-full relative" style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gridTemplateRows: 'repeat(15, 1fr)' }}>
                         {renderBoardBackground()}
@@ -324,12 +393,14 @@ export default function Ludo() {
                                 const tokensArray = safeGameState.tokens?.[p.id];
                                 if (!pColorName || !tokensArray) return null;
 
-                                return tokensArray.map((relPos, tIdx) => {
+                                return tokensArray.map((_, tIdx) => {
+                                    const relPos = displayTokens[p.id]?.[tIdx] ?? tokensArray[tIdx];
                                     const coords = getPosCoordinates(pColorName, tIdx, relPos);
                                     if (!coords) return null;
 
+                                    const actualRelPos = safeGameState.tokens[p.id][tIdx];
                                     const canMove = isMyTurn && p.id === user.id && safeGameState.diceRolled &&
-                                        ((relPos === -1 && safeGameState.lastDice === 6) || (relPos >= 0 && relPos + safeGameState.lastDice <= 56));
+                                        ((actualRelPos === -1 && safeGameState.lastDice === 6) || (actualRelPos >= 0 && actualRelPos <= 51) || (actualRelPos >= 100 && actualRelPos <= 404));
 
                                     return (
                                         <motion.div
@@ -372,77 +443,49 @@ export default function Ludo() {
                             })}
                         </AnimatePresence>
 
-                        {/* GIANT ABSOLUTE OVERLAY DICE BUTTON */}
-                        <div className="absolute bottom-[2%] right-[2%] z-[100] flex flex-col items-center pointer-events-auto perspective-[1500px]">
-                            <motion.button
-                                onClick={handleRoll}
-                                disabled={!isMyTurn || safeGameState.diceRolled || isRolling || safeGameState.winner}
-                                animate={isRolling ? {
-                                    rotateX: [0, 400, -200, 720, 1080],
-                                    rotateY: [0, 360, 900, -180, 720],
-                                    rotateZ: [0, 180, -90, 360, 0],
-                                    scale: [1, 1.4, 0.6, 1.1, 1],
-                                    z: [0, 150, -80, 50, 0],
-                                    y: [0, -40, 20, -10, 0]
-                                } : { rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1, z: 0, y: 0 }}
-                                transition={{ duration: 0.8, times: [0, 0.25, 0.5, 0.75, 1], ease: "anticipate" }}
-                                className={`w-16 h-16 md:w-28 md:h-28 rounded-[20%] flex flex-col items-center justify-center border-[3px] md:border-4 shadow-[0_10px_20px_rgba(0,0,0,0.8),inset_0_5px_15px_rgba(255,255,255,0.4)] transition-colors ${!isMyTurn || safeGameState.winner ? 'bg-gradient-to-b from-slate-300 to-slate-500 border-slate-600 opacity-90 cursor-not-allowed'
-                                    : safeGameState.diceRolled ? 'bg-gradient-to-b from-yellow-300 to-yellow-600 border-yellow-700 text-yellow-950 cursor-default shadow-[0_0_30px_rgba(234,179,8,0.8)]'
-                                        : 'bg-gradient-to-b from-[#ffedb5] to-[#f5b82e] border-[#b07b1e] text-[#5e410b] hover:scale-105 shadow-[0_0_50px_rgba(234,179,8,1)] ring-4 ring-yellow-400'
-                                    }`}
-                                style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/wood-pattern.png")' }}
-                            >
-                                <div className="w-full h-full flex items-center justify-center relative drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
-                                    {/* Dynamic Dice Dots based on value 1 to 6 */}
-                                    {currentFace === 1 && (
-                                        <div className="w-4 h-4 md:w-6 md:h-6 bg-[#4a2e15] rounded-full shadow-inner"></div>
-                                    )}
-                                    {currentFace === 2 && (
-                                        <div className="w-full h-full flex justify-between p-3 md:p-6 pb-4 md:pb-8">
-                                            <div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full self-start shadow-inner"></div>
-                                            <div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full self-end shadow-inner"></div>
-                                        </div>
-                                    )}
-                                    {currentFace === 3 && (
-                                        <div className="w-full h-full flex flex-col justify-between items-center p-3 md:p-6 pb-4 md:pb-8">
-                                            <div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full self-start shadow-inner"></div>
-                                            <div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full self-center shadow-inner"></div>
-                                            <div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full self-end shadow-inner"></div>
-                                        </div>
-                                    )}
-                                    {currentFace === 4 && (
-                                        <div className="w-full h-full flex flex-col justify-between p-3 md:p-6 pb-4 md:pb-8">
-                                            <div className="flex justify-between w-full"><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div></div>
-                                            <div className="flex justify-between w-full"><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div></div>
-                                        </div>
-                                    )}
-                                    {currentFace === 5 && (
-                                        <div className="w-full h-full flex flex-col justify-between p-3 md:p-6 pb-4 md:pb-8">
-                                            <div className="flex justify-between w-full"><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div></div>
-                                            <div className="flex justify-center w-full"><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div></div>
-                                            <div className="flex justify-between w-full"><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div></div>
-                                        </div>
-                                    )}
-                                    {currentFace === 6 && (
-                                        <div className="w-full h-full flex flex-col justify-between p-3 md:p-6 pb-4 md:pb-8">
-                                            <div className="flex justify-between w-full"><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div></div>
-                                            <div className="flex justify-between w-full"><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div><div className="w-3 h-3 md:w-5 md:h-5 bg-[#4a2e15] rounded-full shadow-inner"></div></div>
-                                        </div>
-                                    )}
-                                </div>
-                            </motion.button>
-                            {safeGameState.diceRolled && isMyTurn && (
-                                <div className="absolute -top-3 -right-3 md:-top-5 md:-right-5 bg-green-500 text-white text-[8px] md:text-sm font-black uppercase px-2 md:px-4 py-1 rounded-full shadow-lg animate-bounce border-2 border-white whitespace-nowrap">
-                                    Move!
-                                </div>
-                            )}
-                        </div>
+                        {/* DYNAMIC POSITIONED DICE CONTAINER (NOW IN A TRAY/BOX) */}
+                        <motion.div
+                            layout
+                            initial={false}
+                            animate={(() => {
+                                const turnColor = safeGameState.colors?.[safeGameState.turn];
+                                // Positioning DICE BOX beside the profile HUDs (Floating outside the board)
+                                if (turnColor === 'red') return { left: '-18%', top: '-8%', y: '0%', scale: 1.1 };
+                                if (turnColor === 'blue') return { right: '115%', top: '-8%', y: '0%', scale: 1.1 };
+                                if (turnColor === 'yellow') return { left: '-18%', bottom: '-8%', y: '0%', scale: 1.1 };
+                                if (turnColor === 'green') return { right: '115%', bottom: '-8%', y: '0%', scale: 1.1 };
+                                return { right: '2%', bottom: '2%', x: '0%', y: '0%', scale: 1 };
+                            })()}
+                            transition={{ type: 'spring', stiffness: 120, damping: 25 }}
+                            className="absolute z-[100] flex flex-col items-center pointer-events-auto"
+                        >
+                            <div className="relative group p-4 bg-[#5c3a21]/80 rounded-3xl border-4 border-white/30 shadow-[0_15px_35px_rgba(0,0,0,0.8)] backdrop-blur-md">
+                                {/* Ambient Tray Glow */}
+                                <div className="absolute inset-0 bg-white/10 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                                <button
+                                    onClick={handleRoll}
+                                    disabled={!isMyTurn || safeGameState.diceRolled || isRolling || safeGameState.winner}
+                                    className="p-0 bg-transparent border-none outline-none focus:outline-none transform active:scale-95 transition-transform"
+                                >
+                                    <ThreeDice value={currentFace || 1} isRolling={isRolling} />
+                                </button>
+
+                                {safeGameState.diceRolled && isMyTurn && (
+                                    <motion.div
+                                        initial={{ scale: 0, y: 10 }}
+                                        animate={{ scale: 1, y: 0 }}
+                                        className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gradient-to-t from-green-600 to-green-400 text-white text-[10px] md:text-sm font-black uppercase px-4 py-2 rounded-xl shadow-2xl border-2 border-white/40 whitespace-nowrap z-[101]"
+                                    >
+                                        MOVE!
+                                    </motion.div>
+                                )}
+                            </div>
+                        </motion.div>
                     </div>
                 </div>
-
             </motion.div>
 
-            {/* ACTION STATUS / HISTORY */}
             {safeGameState.winner && (
                 <div className="w-full max-w-xl mx-auto mt-4 px-4 z-20">
                     <button onClick={() => socket.emit('restartGame', { roomCode, userId: user.id })} className="w-full py-4 bg-yellow-500 hover:bg-yellow-400 text-yellow-950 rounded-xl font-black uppercase tracking-widest border-[4px] border-[#825424] shadow-[0_10px_20px_rgba(0,0,0,0.8)] text-xl" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/wood-pattern.png")' }}>
@@ -452,7 +495,6 @@ export default function Ludo() {
             )}
 
             <div className="w-full max-w-4xl mx-auto flex flex-col md:flex-row gap-4 mt-8">
-                {/* Recent History Feed */}
                 <div className="flex-1 bg-[#4a2e15]/80 rounded-3xl p-4 md:p-6 border-[4px] border-[#3d2210] shadow-xl flex flex-col relative z-20" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/wood-pattern.png")' }}>
                     <h3 className="text-amber-200 font-bold uppercase tracking-widest text-xs mb-4">Live History Log</h3>
                     <div className="w-full flex flex-col gap-2 overflow-y-auto max-h-48 custom-scrollbar">

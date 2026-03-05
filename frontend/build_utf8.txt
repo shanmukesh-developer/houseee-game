@@ -1,0 +1,45 @@
+﻿
+> frontend@0.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 3 modules transformed.
+node.exe : [31mΓ£ù[39m Build failed in 679ms
+At line:1 char:1
++ & "D:\/node.exe" "D:\/node_modules/npm/bin/npm-cli.js" run build
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([31mΓ£ù[39m Build faile 
+   d in 679ms:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[31merror during build:
+[31m[vite:esbuild] Transform failed with 1 error:
+C:/housee/frontend/src/App.jsx:14:7: ERROR: The symbol "Ludo" has 
+already been declared[31m
+file: [36mC:/housee/frontend/src/App.jsx:14:7[31m
+[33m
+[33mThe symbol "Ludo" has already been declared[33m
+12 |  import SnakesLadders from './pages/SnakesLadders';
+13 |  import Ludo from './pages/Ludo';
+14 |  import Ludo from './pages/Ludo';
+   |         ^
+15 |  import BlockBlast from './pages/BlockBlast';
+16 |  import { AppContext, socket } from './context/AppContext';
+[31m
+    at failureErrorWithLog 
+(C:\housee\frontend\node_modules\esbuild\lib\main.js:1467:15)
+    at C:\housee\frontend\node_modules\esbuild\lib\main.js:736:50
+    at responseCallbacks.<computed> 
+(C:\housee\frontend\node_modules\esbuild\lib\main.js:603:9)
+    at handleIncomingPacket 
+(C:\housee\frontend\node_modules\esbuild\lib\main.js:658:12)
+    at Socket.readFromStdout 
+(C:\housee\frontend\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode 
+(node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5)
+    at Pipe.onStreamRead 
+(node:internal/stream_base_commons:189:23)[39m

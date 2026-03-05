@@ -11,6 +11,8 @@ import TicTacToe from './pages/TicTacToe';
 import SOSGame from './pages/SOSGame';
 import SnakesLadders from './pages/SnakesLadders';
 import Ludo from './pages/Ludo';
+import BlockBlast from './pages/BlockBlast';
+import TerritoryWar from './pages/TerritoryWar';
 import { AppContext, socket } from './context/AppContext';
 import { playSound } from './utils/audio';
 
@@ -121,6 +123,8 @@ function App() {
             <Route path="/sos" element={<SOSGame />} />
             <Route path="/snakesladders" element={<SnakesLadders />} />
             <Route path="/ludo" element={<Ludo />} />
+            <Route path="/blockblast" element={<BlockBlast />} />
+            <Route path="/territorywar" element={<TerritoryWar />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/ledger" element={<Ledger />} />

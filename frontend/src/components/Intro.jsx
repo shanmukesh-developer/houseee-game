@@ -53,7 +53,7 @@ export default function Intro({ onComplete }) {
                 variants={container}
                 initial="hidden"
                 animate="visible"
-                className="text-[10vw] sm:text-3xl md:text-5xl lg:text-6xl xl:text-7xl tracking-[0.1em] sm:tracking-[0.25em] text-[#f5f5f5] text-center px-4 md:px-8 font-bold relative z-10 mb-10 sm:mb-16 break-words max-w-[95vw] leading-tight"
+                className="text-[8vw] sm:text-[6vw] md:text-5xl lg:text-6xl xl:text-7xl tracking-[0.05em] sm:tracking-[0.15em] text-[#f5f5f5] text-center px-2 font-extrabold relative z-10 mb-8 sm:mb-16 whitespace-nowrap w-full"
                 style={{ fontFamily: "'Cinzel', serif" }}
             >
                 {text.split('').map((char, index) => (
@@ -78,7 +78,7 @@ export default function Intro({ onComplete }) {
                 transition={{ duration: 0.8, ease: "easeOut" }}
                 onClick={handleEnter}
                 disabled={!showButton}
-                className={`relative z-10 px-6 py-3 sm:px-12 sm:py-4 bg-transparent border border-[#f5f5f5]/30 text-[#f5f5f5] text-xs sm:text-lg tracking-[0.15em] sm:tracking-[0.3em] uppercase transition-all duration-500 rounded-md shadow-[0_0_20px_rgba(255,255,255,0.05)] ${showButton ? 'hover:bg-[#f5f5f5] hover:text-[#0d0d0d] hover:shadow-[0_0_40px_rgba(255,255,255,0.8)] cursor-pointer' : 'pointer-events-none'}`}
+                className={`relative z-10 px-8 py-3 sm:px-12 sm:py-4 bg-transparent border border-[#f5f5f5]/30 text-[#f5f5f5] text-sm sm:text-lg tracking-[0.1em] sm:tracking-[0.25em] uppercase transition-all duration-500 rounded-md shadow-[0_0_20px_rgba(255,255,255,0.05)] ${showButton ? 'hover:bg-[#f5f5f5] hover:text-[#0d0d0d] hover:shadow-[0_0_40px_rgba(255,255,255,0.8)] cursor-pointer' : 'pointer-events-none'}`}
                 style={{ fontFamily: "'Inter', sans-serif" }}
             >
                 Enter

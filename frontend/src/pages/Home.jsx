@@ -19,6 +19,8 @@ export default function Home() {
             if (gameType === 'sos') navigate('/sos');
             if (gameType === 'snakesladders') navigate('/snakesladders');
             if (gameType === 'ludo') navigate('/ludo');
+            if (gameType === 'blockblast') navigate('/blockblast');
+            if (gameType === 'territorywar') navigate('/territorywar');
         }
     }, [roomCode, gameType, navigate]);
 
@@ -150,10 +152,28 @@ export default function Home() {
                     </button>
                     <button
                         onClick={() => setSelectedGame('ludo')}
-                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all col-span-2 md:col-span-1 lg:col-span-1 ${selectedGame === 'ludo' ? 'bg-purple-500/20 border-purple-500 text-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'ludo' ? 'bg-purple-500/20 border-purple-500 text-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
                     >
                         <div className="text-xl font-black mb-1 leading-none tracking-widest px-1">✚</div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-center">Ludo</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('blockblast')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'blockblast' ? 'bg-orange-500/20 border-orange-500 text-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <div className="grid grid-cols-2 gap-[1px] mb-1 opacity-90"><div className="w-2.5 h-2.5 bg-current rounded-sm"></div><div className="w-2.5 h-2.5 bg-current rounded-sm"></div><div className="w-2.5 h-2.5 bg-current rounded-sm"></div><div className="w-2.5 h-2.5 bg-current rounded-sm"></div></div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center">Blast</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedGame('territorywar')}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${selectedGame === 'territorywar' ? 'bg-cyan-500/20 border-cyan-500 text-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                    >
+                        <div className="grid grid-cols-3 gap-0.5 mb-1 opacity-90 w-5 h-5">
+                            <div className="bg-red-500"></div><div className="bg-blue-500"></div><div className="bg-green-500"></div>
+                            <div className="bg-red-500"></div><div className="bg-yellow-500"></div><div className="bg-green-500"></div>
+                            <div className="bg-purple-500"></div><div className="bg-yellow-500"></div><div className="bg-cyan-500"></div>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-center flex items-center justify-center">Territory <br /> War</span>
                     </button>
                 </div>
 
@@ -163,9 +183,9 @@ export default function Home() {
                         disabled={!user && !nameInput.trim()}
                         className={`btn-neon w-full flex items-center justify-center gap-2 text-lg py-4 ${(!user && !nameInput) ? 'opacity-50' : ''}`}
                         style={{
-                            backgroundColor: selectedGame === 'tictactoe' ? 'rgba(59, 130, 246, 0.2)' : selectedGame === 'sos' ? 'rgba(239, 68, 68, 0.2)' : selectedGame === 'snakesladders' ? 'rgba(34, 197, 94, 0.2)' : selectedGame === 'ludo' ? 'rgba(168, 85, 247, 0.2)' : undefined,
-                            borderColor: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : undefined,
-                            color: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : undefined,
+                            backgroundColor: selectedGame === 'tictactoe' ? 'rgba(59, 130, 246, 0.2)' : selectedGame === 'sos' ? 'rgba(239, 68, 68, 0.2)' : selectedGame === 'snakesladders' ? 'rgba(34, 197, 94, 0.2)' : selectedGame === 'ludo' ? 'rgba(168, 85, 247, 0.2)' : selectedGame === 'blockblast' ? 'rgba(249, 115, 22, 0.2)' : selectedGame === 'territorywar' ? 'rgba(6, 182, 212, 0.2)' : undefined,
+                            borderColor: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : selectedGame === 'blockblast' ? '#F97316' : selectedGame === 'territorywar' ? '#06B6D4' : undefined,
+                            color: selectedGame === 'tictactoe' ? '#3B82F6' : selectedGame === 'sos' ? '#EF4444' : selectedGame === 'snakesladders' ? '#22C55E' : selectedGame === 'ludo' ? '#A855F7' : selectedGame === 'blockblast' ? '#F97316' : selectedGame === 'territorywar' ? '#06B6D4' : undefined,
                         }}
                     >
                         <Crown fill="currentColor" /> Host {selectedGame.toUpperCase()} Game

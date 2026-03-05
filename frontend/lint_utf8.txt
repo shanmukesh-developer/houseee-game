@@ -1,0 +1,44 @@
+﻿
+> frontend@0.0.0 lint
+> eslint .
+
+
+C:\housee\frontend\src\components\EmojiOverlay.jsx
+  3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\components\Intro.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\components\ThreeDice.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\components\VFXOverlay.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\pages\GameRoom.jsx
+  6:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\pages\Home.jsx
+  5:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\pages\Leaderboard.jsx
+  5:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\pages\Ledger.jsx
+  5:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\pages\Ludo.jsx
+    4:10  error    'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                     no-unused-vars
+  214:8   warning  React Hook useEffect has a missing dependency: 'displayTokens'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\housee\frontend\src\pages\SOSGame.jsx
+  5:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\pages\SnakesLadders.jsx
+  5:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\housee\frontend\src\pages\TicTacToe.jsx
+  5:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+Γ£û 13 problems (12 errors, 1 warning)
+

@@ -1,0 +1,11 @@
+﻿Need to install the following packages:
+eslint@10.0.2
+Ok to proceed? (y) 
+
+C:\housee\backend\index.js
+  734:31  warning  'roomCode' is defined but never used  no-unused-vars
+  741:32  warning  'roomCode' is defined but never used  no-unused-vars
+  748:38  warning  'roomCode' is defined but never used  no-unused-vars
+
+Γ£û 3 problems (0 errors, 3 warnings)
+
